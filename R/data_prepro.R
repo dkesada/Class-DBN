@@ -20,7 +20,7 @@ library(DEoptim)
 main <- function(){
   size <- 2
   id_var <- "REGISTRO"
-  dt <- fread("./data/FJD_12span.csv")
+  dt <- fread("./data/FJD_6.csv")
   dt[, Critico := as.numeric(EXITUS == "S" | UCI == "S")]
   dt_old <- dt[Ola != 6]
   dt_6 <- dt[Ola == 6]
