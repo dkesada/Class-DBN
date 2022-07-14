@@ -1,4 +1,4 @@
-Package: XGBoostDBN
+Package: XGDBN
 Type: Package
 Title: XGBoost-DBN experimental hybrid
 Version: 0.0.0.9000

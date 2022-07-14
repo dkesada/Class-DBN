@@ -12,6 +12,32 @@ library(DEoptim)
 # - Get the hybrid model inside a portable R6 class
 # - Get a decent pipeline for the experiment, not all in a single script
 
+#' Main body with R6 encapsulation
+#' 
+#' Starting point of the whole process
+#' @import data.table jsonlite xgboost dbnR pso DEoptim
+#' @export
+main_r6 <- function(){
+  size <- 2
+  method <- "dmmhc"
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
+  var_sets$cte[2] <- "SEXO"
+  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
+  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
+  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
+  xgb_obj_var <- "Crit"
+  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
+  
+  
+  model <- XGDBN::XGDBN$new(itermax = 1)
+  model$fit_model(dt_red, id_var, size, method, xgb_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T)
+}
+
 #' Main body of the experiment
 #' 
 #' For now, a long script with the first experiment
