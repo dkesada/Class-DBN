@@ -12,13 +12,19 @@
 
 \item{test_per}{percentage of instances assigned as test in the optimization}
 
+\item{id_var}{an index variable that identifies different time series in the data}
+
 \item{xgb_obj_var}{the objective variable for the XGBoost}
+
+\item{dbn_obj_vars}{the objective variables for the DBN}
 
 \item{optim}{boolean that determines wheter or not the XGBoost parameters should be optimized}
 
 \item{xgb_params}{vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)}
 
-\item{dbn_obj_vars}{the objective variables for the DBN}
+\item{dt_test}{a data.table with the test dataset}
+
+\item{horizon}{integer value that defines the lenght of the forecasting with the DBN model}
 
 \item{size}{the size of the DBN}
 
@@ -29,13 +35,17 @@
 \item{...}{additional parameters for the DBN structure learning}
 
 \item{dt}{a data.table with the training dataset}
-
-\item{id_var}{an index variable that identifies different time series in the data}
+}
+\value{
+the prediction result vector
 }
 \description{
 Initialize the object with some modifiable parameters of the optimization
 
 Fit the XGBoost and the DBN models to some provided data
+
+Predict the objective variable in all the rows in a dataset. The horizon
+sets the length of the forecasting with the DBN model.
 
 Fit the internal DBN
 
@@ -60,7 +70,13 @@ based system and an XGBoost model that classifies that predicted state.
 
 \item{\code{fit}}{the DBN fitted model}
 
+\item{\code{dbn_obj_vars_raw}}{the variables to be predicted with the DBN model without the appended 't_0'}
+
 \item{\code{dbn_obj_vars}}{the variables to be predicted with the DBN model}
+
+\item{\code{id_var}}{the variable that differentiates each independent individual TS in the dataset}
+
+\item{\code{size}}{size argument of the DBN}
 
 \item{\code{optim_lower}}{lower bounds of the weight, max tree depth and number of rounds}
 

@@ -32,10 +32,14 @@ main_r6 <- function(){
   xgb_obj_var <- "Crit"
   dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
   
+  dt_train <- dt_red[1:2925]
+  dt_test <- dt_red[2926:3656]
   
   model <- XGDBN::XGDBN$new(itermax = 1)
-  model$fit_model(dt_red, id_var, size, method, xgb_obj_var, 
+  model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
+  
+  model$predict(dt_test)
 }
 
 #' Main body of the experiment
