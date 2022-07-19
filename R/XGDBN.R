@@ -63,8 +63,9 @@ XGDBN <- R6::R6Class("XGDBN",
       orig_rows <- f_dt_test$orig_row_t_1
       f_dt_test[, (del_vars) := NULL]
       
-      preds_net <- suppressWarnings(dbnR::predict_dt(private$fit, f_dt_test, obj_nodes = private$dbn_obj_vars, verbose = F))
-      preds_net[, nrow := NULL]
+      #preds_net <- suppressWarnings(dbnR::predict_dt(private$fit, f_dt_test, obj_nodes = private$dbn_obj_vars, verbose = F))
+      preds_net <- f_dt_test[, private$predict_row(.SD, horizon), by = seq_len(nrow(f_dt_test))]
+      preds_net[, seq_len := NULL]
       preds_net <- setnames(preds_net, old = names(preds_net), new = private$dbn_obj_vars_raw)
       dt_test_mod <- copy(dt_test)
       dt_test_mod[orig_rows, eval(names(preds_net)) := preds_net,]
@@ -191,8 +192,12 @@ XGDBN <- R6::R6Class("XGDBN",
       return(acc)
     },
     
-    predict_row = function(){
-      stop("Not implemented yet.")
+    predict_row = function(orig_row, horizon){
+      pred <- dbnR::forecast_ts(dt = orig_row, fit = private$fit, 
+                                obj_vars = private$dbn_obj_vars, ini = 1, 
+                                len = horizon, print_res = F, plot_res = F)
+      pred$pred[, exec := NULL]
+      return(pred$pred[horizon])
     },
     
     fscore = function(preds, dtrain){
