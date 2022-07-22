@@ -40,6 +40,39 @@ main_r6 <- function(){
                   dbn_obj_vars, seed = 42, optim = T)
   
   model$predict(dt_test)
+  model$predict_xgb(dt_test)
+}
+
+main_hor <- function(){
+  size <- 2
+  method <- "dmmhc"
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
+  var_sets$cte[2] <- "SEXO"
+  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
+  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
+  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
+  xgb_obj_var <- "Crit"
+  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
+  
+  dt_train <- dt_red[1:2925]
+  dt_test <- dt_red[2926:3656]
+  
+  model <- XGDBN::XGDBN$new(itermax = 100)
+  model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T)
+  
+  print("Baseline results: ")
+  model$predict_xgb(dt_test)
+  
+  for(i in 1:20){
+    print(sprintf("Horizon %d results:", i))
+    model$predict(dt_test, horizon = i)
+  }
+  
 }
 
 #' Main body of the experiment

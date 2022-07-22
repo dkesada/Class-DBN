@@ -11,12 +11,14 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param upper upper bounds of the weight, max tree depth and number of rounds
     #' @param itermax maximum number of iterations of the optimization process
     #' @param test_per percentage of instances assigned as test in the optimization
+    #' @param optim_trace whether or not to print the progress of each optimization iteration
     initialize = function(lower = c(0.1, 1, 10), upper = c(5, 10, 500), 
-                          itermax = 100, test_per = 0.2){
+                          itermax = 100, test_per = 0.2, trace = TRUE){
       private$optim_lower <- lower 
       private$optim_upper <- upper
       private$optim_itermax <- itermax
       private$optim_test_per <- test_per
+      private$optim_trace <- trace
     },
     
     # --ICO-Merge: No f_dt option allowed, maybe improve upon merging
@@ -49,13 +51,13 @@ XGDBN <- R6::R6Class("XGDBN",
     },
     
     #' @description
-    #' Predict the objective variable in all the rows in a dataset. The horizon
-    #' sets the length of the forecasting with the DBN model.
+    #' Predict the objective variable in all the rows in a dataset with the 
+    #' XGBoost augmented by the DBN forecasting. The horizon sets the length of 
+    #' the forecasting with the DBN model.
     #' @param dt_test a data.table with the test dataset
     #' @param horizon integer value that defines the lenght of the forecasting with the DBN model
     #' @return the prediction result vector
-    predict = function(dt_test, horizon=1, print_res = T, conf_mat=F){
-      browser()
+    predict = function(dt_test, horizon = 1, print_res = T, conf_mat=F){
       del_vars <- c("orig_row_t_0", "orig_row_t_1")
       dt_test_mod <- copy(dt_test)
       dt_test_mod[, orig_row := .I]
@@ -74,7 +76,29 @@ XGDBN <- R6::R6Class("XGDBN",
       preds <- as.numeric(predict(private$xgb, as.matrix(dt_test_mod)) > 0.5)
       
       if(print_res)
-        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$xgb_obj_var)] != preds)))
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$xgb_obj_var)] == preds)))
+      
+      if(conf_mat)
+        private$conf_matrix(dt_test[, get(private$xgb_obj_var)], preds)
+      
+      return(preds)
+    },
+    
+    #' @description
+    #' Predict the objective variable in all the rows in a dataset using only
+    #' the XGBoost model. 
+    #' @param dt_test a data.table with the test dataset
+    #' @param horizon integer value that defines the lenght of the forecasting with the DBN model
+    #' @return the prediction result vector
+    predict_xgb = function(dt_test, print_res = T, conf_mat=F){
+      browser()
+      dt_test_mod <- copy(dt_test)
+      dt_test_mod[, eval(private$xgb_obj_var) := NULL]
+      dt_test_mod[, eval(private$id_var) := NULL]
+      preds <- as.numeric(predict(private$xgb, as.matrix(dt_test_mod)) > 0.5)
+      
+      if(print_res)
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$xgb_obj_var)] == preds)))
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$xgb_obj_var)], preds)
@@ -111,6 +135,8 @@ XGDBN <- R6::R6Class("XGDBN",
     optim_itermax = NULL,
     #' @field optim_test_per percentage of instances assigned as test in the optimization
     optim_test_per = NULL,
+    #' @field optim_trace whether or not to print the progress of each optimization iteration
+    optim_trace = NULL,
     
     #' @description
     #' Fit the internal DBN
@@ -169,7 +195,7 @@ XGDBN <- R6::R6Class("XGDBN",
       
       
       res <- DEoptim::DEoptim(fn = private$eval_xgboost, lower = private$optim_lower, upper = private$optim_upper,
-                              control = DEoptim::DEoptim.control(itermax = private$optim_itermax),
+                              control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
                               dt_train, dt_test, labels, private$fscore)
       
       return(res)

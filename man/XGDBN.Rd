@@ -12,6 +12,8 @@
 
 \item{test_per}{percentage of instances assigned as test in the optimization}
 
+\item{optim_trace}{whether or not to print the progress of each optimization iteration}
+
 \item{id_var}{an index variable that identifies different time series in the data}
 
 \item{xgb_obj_var}{the objective variable for the XGBoost}
@@ -38,14 +40,20 @@
 }
 \value{
 the prediction result vector
+
+the prediction result vector
 }
 \description{
 Initialize the object with some modifiable parameters of the optimization
 
 Fit the XGBoost and the DBN models to some provided data
 
-Predict the objective variable in all the rows in a dataset. The horizon
-sets the length of the forecasting with the DBN model.
+Predict the objective variable in all the rows in a dataset with the 
+XGBoost augmented by the DBN forecasting. The horizon sets the length of 
+the forecasting with the DBN model.
+
+Predict the objective variable in all the rows in a dataset using only
+the XGBoost model.
 
 Fit the internal DBN
 
@@ -85,5 +93,7 @@ based system and an XGBoost model that classifies that predicted state.
 \item{\code{optim_itermax}}{maximum number of iterations of the optimization process}
 
 \item{\code{optim_test_per}}{percentage of instances assigned as test in the optimization}
+
+\item{\code{optim_trace}}{whether or not to print the progress of each optimization iteration}
 }}
 
