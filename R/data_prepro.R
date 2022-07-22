@@ -43,6 +43,11 @@ main_r6 <- function(){
   model$predict_xgb(dt_test)
 }
 
+#' Main body with R6 encapsulation and testing of horizons
+#' 
+#' Starting point of the whole process
+#' @import data.table jsonlite xgboost dbnR pso DEoptim
+#' @export
 main_hor <- function(){
   size <- 2
   method <- "dmmhc"

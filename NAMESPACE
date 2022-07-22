@@ -2,6 +2,7 @@
 
 export(XGDBN)
 export(main)
+export(main_hor)
 export(main_r6)
 import(DEoptim)
 import(data.table)
