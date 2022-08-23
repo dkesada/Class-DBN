@@ -26,6 +26,13 @@ factorize_character <- function(dt){
   })]
 }
 
+factorize_dt <- function(dt){
+  dt[, lapply(.SD, function(x){
+    x <- factor(x)
+    return(x)
+  })]
+}
+
 conf_matrix <- function(orig, preds){
   tp <- sum(orig == 1 & preds == 1)
   fp <- sum(orig == 0 & preds == 1)

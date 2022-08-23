@@ -14,7 +14,10 @@ Imports:
     jsonlite (>= 1.7.2),
     xgboost (>= 1.6.0),
     pso (>= 1.0.4),
-    DEoptim (>= 2.2.0)
+    DEoptim (>= 2.2.0),
+    mtDBN (>= 0.0.0.9000),
+    bnclassify (>= 0.4.6),
+    infotheo (>= 1.2.0.1)
 Suggests:
     testthat (>= 2.1.0)
 URL: https://github.com/dkesada/XGBoost-DBN

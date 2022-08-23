@@ -4,6 +4,7 @@
 #' based system and an XGBoost model that classifies that predicted state.
 #' @export
 XGDBN <- R6::R6Class("XGDBN",
+  inherit = "HDBN",
   public = list(
     #' @description
     #' Initialize the object with some modifiable parameters of the optimization
@@ -14,11 +15,7 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param optim_trace whether or not to print the progress of each optimization iteration
     initialize = function(lower = c(0.1, 1, 10), upper = c(5, 10, 500), 
                           itermax = 100, test_per = 0.2, trace = TRUE){
-      private$optim_lower <- lower 
-      private$optim_upper <- upper
-      private$optim_itermax <- itermax
-      private$optim_test_per <- test_per
-      private$optim_trace <- trace
+      super$initialize(lower, upper, itermax, test_per, trace)
     },
     
     # --ICO-Merge: No f_dt option allowed, maybe improve upon merging
@@ -28,15 +25,15 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param id_var an index variable that identifies different time series in the data
     #' @param size the size of the DBN 
     #' @param method the structure learning method used
-    #' @param xgb_obj_var the objective variable for the XGBoost
+    #' @param cl_obj_var the objective variable for the XGBoost
     #' @param dbn_obj_vars the objective variables for the DBN
     #' @param optim boolean that determines wheter or not the XGBoost parameters should be optimized
-    #' @param xgb_params vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)
+    #' @param cl_params vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)
     #' @param ... additional parameters for the DBN structure learning
     fit_model = function(dt_train, id_var, size, method, 
-                         xgb_obj_var, dbn_obj_vars, seed = NULL,
-                         optim = TRUE, xgb_params = c(1.26, 7, 258), ...){
-      private$xgb_obj_var <- xgb_obj_var
+                         cl_obj_var, dbn_obj_vars, seed = NULL,
+                         optim = TRUE, cl_params = c(1.26, 7, 258), ...){
+      private$cl_obj_var <- cl_obj_var
       private$dbn_obj_vars_raw <- dbn_obj_vars
       private$dbn_obj_vars <- sapply(dbn_obj_vars, function(x){paste0(x, "_t_0")}, USE.NAMES = F)  # Do not expect the user to input the vars with "_t_0" appended. Could allow both
       private$id_var <- id_var
@@ -47,7 +44,7 @@ XGDBN <- R6::R6Class("XGDBN",
       
       private$fit_dbn(dt_train, size, method, ...)
       
-      private$fit_xgb(dt_train, optim, xgb_params)
+      private$fit_cl(dt_train, optim, cl_params)
     },
     
     #' @description
@@ -56,6 +53,8 @@ XGDBN <- R6::R6Class("XGDBN",
     #' the forecasting with the DBN model.
     #' @param dt_test a data.table with the test dataset
     #' @param horizon integer value that defines the lenght of the forecasting with the DBN model
+    #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
+    #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
     predict = function(dt_test, horizon = 1, print_res = T, conf_mat=F){
       del_vars <- c("orig_row_t_0", "orig_row_t_1")
@@ -71,15 +70,15 @@ XGDBN <- R6::R6Class("XGDBN",
       preds_net <- setnames(preds_net, old = names(preds_net), new = private$dbn_obj_vars_raw)
       dt_test_mod <- copy(dt_test)
       dt_test_mod[orig_rows, eval(names(preds_net)) := preds_net,]
-      dt_test_mod[, eval(private$xgb_obj_var) := NULL]
+      dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
-      preds <- as.numeric(predict(private$xgb, as.matrix(dt_test_mod)) > 0.5)
+      preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
       if(print_res)
-        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$xgb_obj_var)] == preds)))
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
       
       if(conf_mat)
-        private$conf_matrix(dt_test[, get(private$xgb_obj_var)], preds)
+        private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)
       
       return(preds)
     },
@@ -88,20 +87,21 @@ XGDBN <- R6::R6Class("XGDBN",
     #' Predict the objective variable in all the rows in a dataset using only
     #' the XGBoost model. 
     #' @param dt_test a data.table with the test dataset
-    #' @param horizon integer value that defines the lenght of the forecasting with the DBN model
+    #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
+    #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
-    predict_xgb = function(dt_test, print_res = T, conf_mat=F){
+    predict_cl = function(dt_test, print_res = T, conf_mat=F){
       browser()
       dt_test_mod <- copy(dt_test)
-      dt_test_mod[, eval(private$xgb_obj_var) := NULL]
+      dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
-      preds <- as.numeric(predict(private$xgb, as.matrix(dt_test_mod)) > 0.5)
+      preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
       if(print_res)
-        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$xgb_obj_var)] == preds)))
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
       
       if(conf_mat)
-        private$conf_matrix(dt_test[, get(private$xgb_obj_var)], preds)
+        private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)
       
       return(preds)
     }
@@ -109,144 +109,45 @@ XGDBN <- R6::R6Class("XGDBN",
   ),
   
   private = list(
-    #' @field xgb the XGBoost model
-    xgb = NULL,
-    #' @field xgb_params the XGBoost parameters. Weight of the '1' labels, maximum depth of the trees and number of rounds.
-    xgb_params = NULL,
-    #' @field xgb_obj_var the variable to be classified with the XGBoost
-    xgb_obj_var = NULL,
-    #' @field net the DBN graph object
-    net = NULL,
-    #' @field fit the DBN fitted model
-    fit = NULL,
-    #' @field dbn_obj_vars_raw the variables to be predicted with the DBN model without the appended 't_0'
-    dbn_obj_vars_raw = NULL,
-    #' @field dbn_obj_vars the variables to be predicted with the DBN model
-    dbn_obj_vars = NULL,
-    #' @field id_var the variable that differentiates each independent individual TS in the dataset
-    id_var = NULL,
-    #' @field size size argument of the DBN
-    size = NULL,
-    #' @field optim_lower lower bounds of the weight, max tree depth and number of rounds
-    optim_lower = NULL,
-    #' @field optim_upper bounds of the weight, max tree depth and number of rounds
-    optim_upper = NULL,
-    #' @field optim_itermax maximum number of iterations of the optimization process
-    optim_itermax = NULL,
-    #' @field optim_test_per percentage of instances assigned as test in the optimization
-    optim_test_per = NULL,
-    #' @field optim_trace whether or not to print the progress of each optimization iteration
-    optim_trace = NULL,
-    
-    #' @description
-    #' Fit the internal DBN
-    #' @param dt_train a data.table with the training dataset
-    #' @param size the size of the DBN 
-    #' @param method the structure learning method used
-    #' @param ... additional parameters for the DBN structure learning
-    fit_dbn = function(dt_train, size, method, ...){
-      dt <- dt_train[, .SD, .SDcols = c(private$id_var, private$dbn_obj_vars_raw)]
-      f_dt <- dbnR::filtered_fold_dt(dt, size, private$id_var)
-      dt[, eval(private$id_var) := NULL]
-      
-      private$net <- dbnR::learn_dbn_struc(dt = dt, size = size, method = method, f_dt = f_dt, ...)
-      private$fit <- dbnR::fit_dbn_params(private$net, f_dt)
-    },
-    
     #' @description
     #' Fit the internal XGBoost
     #' @param dt_train a data.table with the training dataset
-    #' @param method the structure learning method used
-    #' @param ... additional parameters for the DBN structure learning
-    fit_xgb = function(dt_train, optim, xgb_params){
-      obj_col <- dt_train[, get(private$xgb_obj_var)]
+    #' @param optim boolean that determines wheter or not the classifier parameters should be optimized
+    #' @param cl_params the classifier parameters.
+    fit_cl = function(dt_train, optim, cl_params){
+      obj_col <- dt_train[, get(private$cl_obj_var)]
       dt_train_red <- copy(dt_train)
       dt_train_red[, eval(private$id_var) := NULL]
       
       if(optim)
-        xgb_params <- private$optimize_xgb(dt_train)$optim$bestmem
+        cl_params <- private$optimize_cl(dt_train)$optim$bestmem
       
-      private$xgb_params <- xgb_params
+      private$cl_params <- cl_params
       
       weights <- rep(1, dim(dt_train)[1])
-      weights[dt_train[get(private$xgb_obj_var) == 1, .I]] <- xgb_params[1]
-      dt_train_red[, eval(private$xgb_obj_var) := NULL]
+      weights[dt_train[get(private$cl_obj_var) == 1, .I]] <- cl_params[1]
+      dt_train_red[, eval(private$cl_obj_var) := NULL]
       
-      private$xgb <- xgboost(data = as.matrix(dt_train_red), label = obj_col,
+      private$cl <- xgboost(data = as.matrix(dt_train_red), label = obj_col,
                            weight = weights, eval_metric = fscore, max.depth = 4,
                            eta = 1, nthread = 2, nrounds = 20, objective = "binary:logistic")
     },
     
-    #' @description
-    #' Optimize the parameters of the internal XGBoost
-    #' @param dt a data.table with the training dataset
-    optimize_xgb = function(dt){
-      test_id <- sample(unique(dt[, get(private$id_var)]), 
-                        length(unique(dt[, get(private$id_var)])) * private$optim_test_per)
-      dt_train <- dt[!(get(private$id_var) %in% test_id)]
-      dt_test <- dt[get(private$id_var) %in% test_id]
-      labels <- dt[, .SD, .SDcols = c(private$id_var, private$xgb_obj_var)]
-      labels[, test := 0]
-      labels[get(private$id_var) %in% test_id, test := 1]
-      dt_train[, eval(private$xgb_obj_var) := NULL]
-      dt_test[, eval(private$xgb_obj_var) := NULL]
-      dt_train[, eval(private$id_var) := NULL]
-      dt_test[, eval(private$id_var) := NULL]
-      
-      
-      res <- DEoptim::DEoptim(fn = private$eval_xgboost, lower = private$optim_lower, upper = private$optim_upper,
-                              control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
-                              dt_train, dt_test, labels, private$fscore)
-      
-      return(res)
-    },
-    
     # Three parameters to optimize: the weight of critical cases, the max.depth and the number of rounds
-    eval_xgboost = function(params, dt_train, dt_test, labels, eval_metric){
+    eval_cl = function(params, dt_train, dt_test, labels, eval_metric){
       print(params)
       params[2] <- round(params[2])
       params[3] <- round(params[3])
       weights <- rep(1, dim(labels[test == 0])[1])
-      weights[labels[test == 0 & get(private$xgb_obj_var) == 1, .I]] <- params[1]
-      xgb <- xgboost(data = as.matrix(dt_train), 
-                           label = labels[test == 0, get(private$xgb_obj_var)], weight = weights, 
+      weights[labels[test == 0 & get(private$cl_obj_var) == 1, .I]] <- params[1]
+      cl <- xgboost(data = as.matrix(dt_train), 
+                           label = labels[test == 0, get(private$cl_obj_var)], weight = weights, 
                            eval_metric = eval_metric, max.depth = params[2], nrounds = params[3],
                            eta = 1, nthread = 2, objective = "binary:logistic", verbose = 0)
-      preds <- as.numeric(predict(xgb, as.matrix(dt_test)) > 0.5)
-      acc <- mean(labels[test == 1, get(private$xgb_obj_var)] != preds) # Mean error
+      preds <- as.numeric(predict(cl, as.matrix(dt_test)) > 0.5)
+      acc <- mean(labels[test == 1, get(private$cl_obj_var)] != preds) # Mean error
       
       return(acc)
-    },
-    
-    predict_row = function(orig_row, horizon){
-      pred <- dbnR::forecast_ts(dt = orig_row, fit = private$fit, 
-                                obj_vars = private$dbn_obj_vars, ini = 1, 
-                                len = horizon, print_res = F, plot_res = F)
-      pred$pred[, exec := NULL]
-      return(pred$pred[horizon])
-    },
-    
-    fscore = function(preds, dtrain){
-      labels <- getinfo(dtrain, "label")
-      tp <- sum(labels == 1 & preds >= 0.5)
-      fp <- sum(labels == 0 & preds >= 0.5)
-      fn <- sum(labels == 1 & preds < 0.5)
-      err <- as.numeric(tp / (tp + 0.5 * (fp + fn)))
-      
-      return(list(metric = "fscore", value = err))
-    },
-    
-    conf_matrix = function(orig, preds){
-      tp <- sum(orig == 1 & preds == 1)
-      fp <- sum(orig == 0 & preds == 1)
-      tn <- sum(orig == 0 & preds == 0)
-      fn <- sum(orig == 1 & preds == 0)
-      
-      cat(sprintf("Confusion matrix:
-                  Orig
-                1      0\n
-      Pred  1   %d     %d\n
-            0   %d     %d\n", tp, fp, fn, tn))
     }
     
   )

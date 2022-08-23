@@ -80,6 +80,96 @@ main_hor <- function(){
   
 }
 
+#' Main body trying out model tree dynamic Bayesian networks
+#' 
+#' Starting point of the whole process
+#' @import mtDBN
+#' @export
+main_mtdbn <- function(){
+  size <- 2
+  method <- "dmmhc"
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
+  var_sets$cte[2] <- "SEXO"
+  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
+  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
+  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
+  xgb_obj_var <- "Crit"
+  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
+  
+  dt_train <- dt_red[1:2925]
+  dt_test <- dt_red[2926:3656]
+  
+  model <- XGDBN::XGDBN$new(itermax = 100)
+  model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T)
+  
+  print("Baseline results: ")
+  model$predict_xgb(dt_test)
+  
+  for(i in 1:20){
+    print(sprintf("Horizon %d results:", i))
+    model$predict(dt_test, horizon = i)
+  }
+  
+}
+
+#' Main body trying bayesian classifiers
+#' 
+#' Starting point of the whole process
+#' @import bnclassify infotheo
+#' @export
+main_bncl <- function(){
+  size <- 2
+  method <- "dmmhc"
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
+  var_sets$cte[2] <- "SEXO"
+  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
+  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
+  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
+  xgb_obj_var <- "Crit"
+  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
+  
+  #discretize
+  dt_disc <- copy(dt_red)
+  dbn_vars_disc <-  discretize(dt_disc[, .SD, .SDcols = dbn_obj_vars])
+  dt_disc[, eval(dbn_obj_vars) := dbn_vars_disc]
+  dt_disc[, IMC := round(IMC)]
+  dt_disc <- factorize_dt(dt_disc)
+  
+  
+  dt_train <- dt_disc[1:2925]
+  dt_test <- dt_disc[2926:3656]
+  
+  browser()
+  
+  
+  model <- bnclassify::nb(class = xgb_obj_var, dataset = dt_train)
+  fit <- lp(model, dt_train, 0.01) # Optimize parameters and model TAN/NB
+  
+  print("Baseline results: ")
+  preds <- predict(fit, dt_test)
+  conf_matrix(dt_test$Crit, preds)
+  cv(fit, dt_test, k=10)
+  #model$predict_xgb(dt_test)
+  lapply(dbn_obj_vars, function(x){
+    arules::discretize(dt_red[, .SD, .SDcols = x], method = "frequency", breaks = 15, onlycuts=T)
+  })
+  
+  for(i in 1:20){
+    print(sprintf("Horizon %d results:", i))
+    model$predict(dt_test, horizon = i)
+  }
+  
+}
+
 #' Main body of the experiment
 #' 
 #' For now, a long script with the first experiment
