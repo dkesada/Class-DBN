@@ -1,5 +1,3 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^markdowns$
-^data$
-^LICENSE\.md$
+^output$

@@ -4,7 +4,7 @@
 #' based system and an XGBoost model that classifies that predicted state.
 #' @export
 XGDBN <- R6::R6Class("XGDBN",
-  inherit = "HDBN",
+  inherit = HDBN,
   public = list(
     #' @description
     #' Initialize the object with some modifiable parameters of the optimization
@@ -91,7 +91,6 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
     predict_cl = function(dt_test, print_res = T, conf_mat=F){
-      browser()
       dt_test_mod <- copy(dt_test)
       dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]

@@ -40,7 +40,7 @@ main_r6 <- function(){
                   dbn_obj_vars, seed = 42, optim = T)
   
   model$predict(dt_test)
-  model$predict_xgb(dt_test)
+  model$predict_cl(dt_test)
 }
 
 #' Main body with R6 encapsulation and testing of horizons
@@ -71,7 +71,7 @@ main_hor <- function(){
                   dbn_obj_vars, seed = 42, optim = T)
   
   print("Baseline results: ")
-  model$predict_xgb(dt_test)
+  model$predict_cl(dt_test)
   
   for(i in 1:20){
     print(sprintf("Horizon %d results:", i))

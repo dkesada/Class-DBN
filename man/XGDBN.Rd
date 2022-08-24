@@ -16,27 +16,29 @@
 
 \item{id_var}{an index variable that identifies different time series in the data}
 
-\item{xgb_obj_var}{the objective variable for the XGBoost}
-
-\item{dbn_obj_vars}{the objective variables for the DBN}
-
-\item{optim}{boolean that determines wheter or not the XGBoost parameters should be optimized}
-
-\item{xgb_params}{vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)}
-
-\item{dt_test}{a data.table with the test dataset}
-
-\item{horizon}{integer value that defines the lenght of the forecasting with the DBN model}
-
 \item{size}{the size of the DBN}
-
-\item{dt_train}{a data.table with the training dataset}
 
 \item{method}{the structure learning method used}
 
+\item{cl_obj_var}{the objective variable for the XGBoost}
+
+\item{dbn_obj_vars}{the objective variables for the DBN}
+
 \item{...}{additional parameters for the DBN structure learning}
 
-\item{dt}{a data.table with the training dataset}
+\item{horizon}{integer value that defines the lenght of the forecasting with the DBN model}
+
+\item{dt_test}{a data.table with the test dataset}
+
+\item{print_res}{a boolean that determines whether or not should the results of the prediction be printed}
+
+\item{conf_mat}{a boolean that determines whether or not should a confusion matrix be printed}
+
+\item{dt_train}{a data.table with the training dataset}
+
+\item{optim}{boolean that determines wheter or not the classifier parameters should be optimized}
+
+\item{cl_params}{the classifier parameters.}
 }
 \value{
 the prediction result vector
@@ -55,45 +57,9 @@ the forecasting with the DBN model.
 Predict the objective variable in all the rows in a dataset using only
 the XGBoost model.
 
-Fit the internal DBN
-
 Fit the internal XGBoost
-
-Optimize the parameters of the internal XGBoost
 }
 \details{
 The model is defined as a DBN model that forecasts the state of a time-series
 based system and an XGBoost model that classifies that predicted state.
 }
-\section{Fields}{
-
-\describe{
-\item{\code{xgb}}{the XGBoost model}
-
-\item{\code{xgb_params}}{the XGBoost parameters. Weight of the '1' labels, maximum depth of the trees and number of rounds.}
-
-\item{\code{xgb_obj_var}}{the variable to be classified with the XGBoost}
-
-\item{\code{net}}{the DBN graph object}
-
-\item{\code{fit}}{the DBN fitted model}
-
-\item{\code{dbn_obj_vars_raw}}{the variables to be predicted with the DBN model without the appended 't_0'}
-
-\item{\code{dbn_obj_vars}}{the variables to be predicted with the DBN model}
-
-\item{\code{id_var}}{the variable that differentiates each independent individual TS in the dataset}
-
-\item{\code{size}}{size argument of the DBN}
-
-\item{\code{optim_lower}}{lower bounds of the weight, max tree depth and number of rounds}
-
-\item{\code{optim_upper}}{bounds of the weight, max tree depth and number of rounds}
-
-\item{\code{optim_itermax}}{maximum number of iterations of the optimization process}
-
-\item{\code{optim_test_per}}{percentage of instances assigned as test in the optimization}
-
-\item{\code{optim_trace}}{whether or not to print the progress of each optimization iteration}
-}}
-
