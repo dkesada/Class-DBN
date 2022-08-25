@@ -18,35 +18,6 @@ XGDBN <- R6::R6Class("XGDBN",
       super$initialize(lower, upper, itermax, test_per, trace)
     },
     
-    # --ICO-Merge: No f_dt option allowed, maybe improve upon merging
-    #' @description
-    #' Fit the XGBoost and the DBN models to some provided data
-    #' @param dt_train a data.table with the training dataset
-    #' @param id_var an index variable that identifies different time series in the data
-    #' @param size the size of the DBN 
-    #' @param method the structure learning method used
-    #' @param cl_obj_var the objective variable for the XGBoost
-    #' @param dbn_obj_vars the objective variables for the DBN
-    #' @param optim boolean that determines wheter or not the XGBoost parameters should be optimized
-    #' @param cl_params vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)
-    #' @param ... additional parameters for the DBN structure learning
-    fit_model = function(dt_train, id_var, size, method, 
-                         cl_obj_var, dbn_obj_vars, seed = NULL,
-                         optim = TRUE, cl_params = c(1.26, 7, 258), ...){
-      private$cl_obj_var <- cl_obj_var
-      private$dbn_obj_vars_raw <- dbn_obj_vars
-      private$dbn_obj_vars <- sapply(dbn_obj_vars, function(x){paste0(x, "_t_0")}, USE.NAMES = F)  # Do not expect the user to input the vars with "_t_0" appended. Could allow both
-      private$id_var <- id_var
-      private$size <- size
-      
-      if(!is.null(seed))
-        set.seed(seed)
-      
-      private$fit_dbn(dt_train, size, method, ...)
-      
-      private$fit_cl(dt_train, optim, cl_params)
-    },
-    
     #' @description
     #' Predict the objective variable in all the rows in a dataset with the 
     #' XGBoost augmented by the DBN forecasting. The horizon sets the length of 
@@ -111,8 +82,8 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @description
     #' Fit the internal XGBoost
     #' @param dt_train a data.table with the training dataset
-    #' @param optim boolean that determines wheter or not the classifier parameters should be optimized
-    #' @param cl_params the classifier parameters.
+    #' @param optim boolean that determines whether or not the XGBoost parameters should be optimized
+    #' @param cl_params vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)
     fit_cl = function(dt_train, optim, cl_params){
       obj_col <- dt_train[, get(private$cl_obj_var)]
       dt_train_red <- copy(dt_train)

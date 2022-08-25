@@ -2,49 +2,23 @@
 #'
 #' The model is defined as a DBN model that forecasts the state of a time-series
 #' based system and a Bayesian network classifier that classifies that predicted state.
+#' Predicting with bnclassify requires the gRain package, which has unavailable dependencies
+#' on CRAN that must be downloaded from bioconductor. It's kind of a pain, but there's not much I can
+#' do about it
 #' @export
 BNCDBN <- R6::R6Class("BNCDBN",
-  inherit = "HDBN",
+  inherit = HDBN,
   public = list(
     #' @description
     #' Initialize the object with some modifiable parameters of the optimization
-    #' @param lower lower bounds of the weight, max tree depth and number of rounds
-    #' @param upper upper bounds of the weight, max tree depth and number of rounds
+    #' @param lower lower bounds of the number of folds, epsilon and smooth
+    #' @param upper upper bounds of the number of folds, epsilon and smooth
     #' @param itermax maximum number of iterations of the optimization process
     #' @param test_per percentage of instances assigned as test in the optimization
     #' @param optim_trace whether or not to print the progress of each optimization iteration
-    initialize = function(lower = c(0.1, 1, 10), upper = c(5, 10, 500), 
+    initialize = function(lower = c(1, 0, 0), upper = c(10, 5, 5), 
                           itermax = 100, test_per = 0.2, trace = TRUE){
       super$initialize(lower, upper, itermax, test_per, trace)
-    },
-    
-    # --ICO-Merge: No f_dt option allowed, maybe improve upon merging
-    #' @description
-    #' Fit the XGBoost and the DBN models to some provided data
-    #' @param dt_train a data.table with the training dataset
-    #' @param id_var an index variable that identifies different time series in the data
-    #' @param size the size of the DBN 
-    #' @param method the structure learning method used
-    #' @param cl_obj_var the objective variable for the XGBoost
-    #' @param dbn_obj_vars the objective variables for the DBN
-    #' @param optim boolean that determines wheter or not the XGBoost parameters should be optimized
-    #' @param cl_params vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)
-    #' @param ... additional parameters for the DBN structure learning
-    fit_model = function(dt_train, id_var, size, method, 
-                         cl_obj_var, dbn_obj_vars, seed = NULL,
-                         optim = TRUE, cl_params = c(1.26, 7, 258), ...){
-      private$cl_obj_var <- cl_obj_var
-      private$dbn_obj_vars_raw <- dbn_obj_vars
-      private$dbn_obj_vars <- sapply(dbn_obj_vars, function(x){paste0(x, "_t_0")}, USE.NAMES = F)  # Do not expect the user to input the vars with "_t_0" appended. Could allow both
-      private$id_var <- id_var
-      private$size <- size
-      
-      if(!is.null(seed))
-        set.seed(seed)
-      
-      private$fit_dbn(dt_train, size, method, ...)
-      
-      private$fit_cl(dt_train, optim, cl_params)
     },
     
     #' @description
@@ -109,33 +83,50 @@ BNCDBN <- R6::R6Class("BNCDBN",
   ),
   
   private = list(
+    #' @field mcuts master set of cut points of the discretization process
+    mcuts = NULL,
+    
     #' @description
-    #' Fit the internal XGBoost
+    #' Fit the internal Bayesian network classifier
     #' @param dt_train a data.table with the training dataset
-    #' @param optim boolean that determines wheter or not the classifier parameters should be optimized
-    #' @param cl_params the classifier parameters.
+    #' @param optim boolean that determines whether or not the Bayesian network classifier parameters should be optimized. 
+    #' Only the TAN models have parameters that can be optimized.
+    #' @param cl_params vector with the parameters of the Bayesian network classifier. c(n_folds, epsilon, smooth)
     fit_cl = function(dt_train, optim, cl_params){
       obj_col <- dt_train[, get(private$cl_obj_var)]
       dt_train_red <- copy(dt_train)
       dt_train_red[, eval(private$id_var) := NULL]
       
-      if(optim)
+      private$mcuts <- dt_train_red[, lapply(.SD, arules::discretize, breaks = 4, onlycuts = T), 
+                                    .SDcols = c("Edad", "IMC", dbn_obj_vars)]
+      dt_train_red <- private$discretize_dt(dt_train_red)
+      
+      if(cl_params[1] == 1){ # The tan_cl model only has the smooth parameter
+        private$optim_lower <- private$optim_lower[3] 
+        private$optim_upper <- private$optim_upper[3]
+      }
+      
+      browser()
+      
+      if(optim & (cl_params[1] > 0)){
+        private$cl_params <- cl_params # I need to know my model type cl_params[1] inside the optimization process
         cl_params <- private$optimize_cl(dt_train)$optim$bestmem
+      }
       
+      model <-private$build_bnc(dt_train_red, cl_params)
+      private$cl <- lp(model, dt_disc, cl_params[4]) 
       private$cl_params <- cl_params
-      
-      weights <- rep(1, dim(dt_train)[1])
-      weights[dt_train[get(private$cl_obj_var) == 1, .I]] <- cl_params[1]
-      dt_train_red[, eval(private$cl_obj_var) := NULL]
-      
-      private$cl <- xgboost(data = as.matrix(dt_train_red), label = obj_col,
-                           weight = weights, eval_metric = fscore, max.depth = 4,
-                           eta = 1, nthread = 2, nrounds = 20, objective = "binary:logistic")
     },
     
-    # Three parameters to optimize: the weight of critical cases, the max.depth and the number of rounds
+    # One to three parameters to optimize: the number of folds, the epsilon and the smooth
     eval_cl = function(params, dt_train, dt_test, labels, eval_metric){
       print(params)
+      
+      if(cl_params[1] == 1){ # The tan_cl model only has the smooth parameter
+        model <-private$build_bnc(dt_train_red, cl_params)
+        private$cl <- lp(model, dt_disc, cl_params[4]) 
+      }#TODO
+      
       params[2] <- round(params[2])
       params[3] <- round(params[3])
       weights <- rep(1, dim(labels[test == 0])[1])
@@ -148,6 +139,27 @@ BNCDBN <- R6::R6Class("BNCDBN",
       acc <- mean(labels[test == 1, get(private$cl_obj_var)] != preds) # Mean error
       
       return(acc)
+    },
+    
+    # Builds the appropriate Bayesian netwock classifier from the bnclassify package: 0-nb, 1-tan_cl, 2-tan_hc, 3-tan_hcsp
+    build_bnc = function(dt, cl_params){
+      res <- bnclassify::nb(private$cl_obj_var, dt)
+      if(cl_params[1] == 1)
+        res <- bnclassify::tan_cl(private$cl_obj_var, dt)
+      else if(cl_params[1] == 2)
+        res <- bnclassify::tan_hc(private$cl_obj_var, dt, cl_params[2], cl_params[3], cl_params[4])
+      else if (cl_params[1] == 3)
+        res <- bnclassify::tan_hcsp(private$cl_obj_var, dt, cl_params[2], cl_params[3], cl_params[4])
+      
+      return(res)
+    },
+    
+    # Discretizes a data.table based on the master set of cuts stored inside this object
+    discretize_dt = function(dt){
+      for(i in names(private$mcuts))
+        dt[, eval(i) := cut(get(i), breaks = private$mcuts[, get(i)], include.lowest = T)]
+      
+      return(factorize_dt(dt))
     }
     
   )

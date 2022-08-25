@@ -36,7 +36,7 @@
 
 \item{dt_train}{a data.table with the training dataset}
 
-\item{optim}{boolean that determines wheter or not the classifier parameters should be optimized}
+\item{optim}{boolean that determines whether or not the classifier parameters should be optimized}
 
 \item{cl_params}{the classifier parameters.}
 

@@ -17,8 +17,9 @@ Imports:
     DEoptim (>= 2.2.0),
     mtDBN (>= 0.0.0.9000),
     bnclassify (>= 0.4.6),
-    infotheo (>= 1.2.0.1)
+    arules (>= 1.7-4)
 Suggests:
+    gRain (>= 1.3.10),
     testthat (>= 2.1.0)
 URL: https://github.com/dkesada/XGBoost-DBN
 License: MIT + file LICENSE
