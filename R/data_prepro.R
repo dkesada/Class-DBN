@@ -111,39 +111,19 @@ main_bncl <- function(){
   
   dt_train <- dt_red[1:2925]
   dt_test <- dt_red[2926:3656]
-  
-  #discretize
-  # dt_disc <- copy(dt_train)
-  # dt_disc[, eval(id_var) := NULL]
-  # dt_test[, eval(id_var) := NULL]
-  # mcuts <- dt_disc[, lapply(.SD, arules::discretize, breaks = 4, onlycuts = T), .SDcols = c("Edad", "IMC", dbn_obj_vars)]
-  # for(i in names(mcuts)){
-  #   dt_disc[, eval(i) := cut(get(i), breaks = mcuts[, get(i)], include.lowest = T)]
-  #   dt_test[, eval(i) := cut(get(i), breaks = mcuts[, get(i)], include.lowest = T)]
-  # }
-  
-  # dt_disc <- factorize_dt(dt_disc)
-  # dt_test <- factorize_dt(dt_test)
-  # 
-  # model <- bnclassify::nb(class = cl_obj_var, dataset = dt_disc)
-  # fit <- lp(model, dt_disc, 0.01) # Optimize parameters and model TAN/NB
-  # 
-  # print("Baseline results: ")
-  # preds <- predict(fit, dt_test)
-  # conf_matrix(dt_test$Crit, preds)
-  # cv(fit, dt_test, k=10)
+
   browser()
-  model <- XGDBN::BNCDBN$new(itermax = 100)
+  model <- XGDBN::BNCDBN$new(itermax = 1)
   model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
-                  dbn_obj_vars, seed = 42, optim = T)
+                  dbn_obj_vars, seed = 42, optim = T, cl_params = c(3, 4, 0.5, 0.5))
   
   print("Baseline results: ")
   model$predict_cl(dt_test)
   
-  for(i in 1:20){
-    print(sprintf("Horizon %d results:", i))
-    model$predict(dt_test, horizon = i)
-  }
+  # for(i in 1:20){
+  #   print(sprintf("Horizon %d results:", i))
+  #   model$predict(dt_test, horizon = i)
+  # }
   
 }
 

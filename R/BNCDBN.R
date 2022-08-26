@@ -16,7 +16,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
     #' @param itermax maximum number of iterations of the optimization process
     #' @param test_per percentage of instances assigned as test in the optimization
     #' @param optim_trace whether or not to print the progress of each optimization iteration
-    initialize = function(lower = c(1, 0, 0), upper = c(10, 5, 5), 
+    initialize = function(lower = c(1.5, 0, 0), upper = c(10, 5, 5), 
                           itermax = 100, test_per = 0.2, trace = TRUE){
       super$initialize(lower, upper, itermax, test_per, trace)
     },
@@ -38,7 +38,6 @@ BNCDBN <- R6::R6Class("BNCDBN",
       orig_rows <- f_dt_test$orig_row_t_1
       f_dt_test[, (del_vars) := NULL]
       
-      #preds_net <- suppressWarnings(dbnR::predict_dt(private$fit, f_dt_test, obj_nodes = private$dbn_obj_vars, verbose = F))
       preds_net <- f_dt_test[, private$predict_row(.SD, horizon), by = seq_len(nrow(f_dt_test))]
       preds_net[, seq_len := NULL]
       preds_net <- setnames(preds_net, old = names(preds_net), new = private$dbn_obj_vars_raw)
@@ -46,6 +45,8 @@ BNCDBN <- R6::R6Class("BNCDBN",
       dt_test_mod[orig_rows, eval(names(preds_net)) := preds_net,]
       dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
+      
+      
       preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
       if(print_res)
@@ -65,9 +66,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
     predict_cl = function(dt_test, print_res = T, conf_mat=F){
-      browser()
       dt_test_mod <- copy(dt_test)
-      #dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
       dt_test_mod <- private$discretize_dt(dt_test_mod)
       preds <- predict(private$cl, dt_test_mod)
@@ -80,7 +79,6 @@ BNCDBN <- R6::R6Class("BNCDBN",
       
       return(preds)
     }
-   
   ),
   
   private = list(
@@ -105,9 +103,10 @@ BNCDBN <- R6::R6Class("BNCDBN",
       if(is.null(cl_params))
         cl_params <- c(0, 0, 0, 0)
       
-      if(optim & (cl_params[1] > 0)){
+      if(optim & (cl_params[1] > 1)){
         private$cl_params <- cl_params # I need to know my model type cl_params[1] inside the optimization process
         cl_params <- private$optimize_cl(dt_train)$optim$bestmem
+        cl_params <- c(private$cl_params[1], cl_params)
       }
       
       model <-private$build_bnc(dt_train_red, cl_params)
@@ -127,41 +126,28 @@ BNCDBN <- R6::R6Class("BNCDBN",
       labels <- dt[, .SD, .SDcols = c(private$id_var, private$cl_obj_var)]
       labels[, test := 0]
       labels[get(private$id_var) %in% test_id, test := 1]
-      dt_train[, eval(private$cl_obj_var) := NULL]
-      dt_test[, eval(private$cl_obj_var) := NULL]
       dt_train[, eval(private$id_var) := NULL]
       dt_test[, eval(private$id_var) := NULL]
+      dt_train <- private$discretize_dt(dt_train)
+      dt_test <- private$discretize_dt(dt_test)
       
-      if(private$cl_params[1] == 1) # We only optimize the smooth parameter in the case of the tan_cl
-        res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower[4], upper = private$optim_upper[4],
-                                control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
-                                dt_train, dt_test, labels, private$fscore)
-        
-      else
-        res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower, upper = private$optim_upper,
-                                control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
-                                dt_train, dt_test, labels, private$fscore)
-      
+      res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower, upper = private$optim_upper,
+                              control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
+                              dt_train, dt_test, private$fscore)
+    
       return(res)
     },
     
     # One to three parameters to optimize: the number of folds, the epsilon and the smooth
-    eval_cl = function(params, dt_train, dt_test, labels, eval_metric){
+    eval_cl = function(params, dt_train, dt_test, eval_metric){
       print(params)
-      
-      if(cl_params[1] == 1){ # The tan_cl model only has the smooth parameter
-        model <-private$build_bnc(dt_train_red, c(1, 0, 0, params))
-        cl <- lp(model, dt_disc, params) 
-      }
-      
-      else{
-        model <-private$build_bnc(dt_train_red, params)
-        cl <- lp(model, dt_disc, cl_params[4]) 
-      }
+
+      params[1] <- round(params[1])  # Number of folds
+      model <-private$build_bnc(dt_train, c(private$cl_params[1], params))
+      cl <- lp(model, dt_train, params[3]) 
       
       preds <- predict(cl, dt_test)
-      browser()
-      acc <- mean(labels[test == 1, get(private$cl_obj_var)] != preds) # Mean error
+      acc <- mean(dt_test[, get(private$cl_obj_var)] != preds)
       
       return(acc)
     },
@@ -170,7 +156,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
     build_bnc = function(dt, cl_params){
       res <- bnclassify::nb(private$cl_obj_var, dt)
       if(cl_params[1] == 1)
-        res <- bnclassify::tan_cl(private$cl_obj_var, dt, smooth = cl_params[4])
+        res <- bnclassify::tan_cl(private$cl_obj_var, dt)
       else if(cl_params[1] == 2)
         res <- bnclassify::tan_hc(private$cl_obj_var, dt, k = cl_params[2], epsilon = cl_params[3], smooth = cl_params[4])
       else if (cl_params[1] == 3)
