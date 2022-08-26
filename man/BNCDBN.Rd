@@ -4,9 +4,9 @@
 \alias{BNCDBN}
 \title{R6 class that defines the Bayesian network classifier + DBN model}
 \arguments{
-\item{lower}{lower bounds of the model type, number of folds, epsilon and smooth}
+\item{lower}{lower bounds of the number of folds, epsilon and smooth}
 
-\item{upper}{upper bounds of the model type, number of folds, epsilon and smooth}
+\item{upper}{upper bounds of the number of folds, epsilon and smooth}
 
 \item{itermax}{maximum number of iterations of the optimization process}
 
@@ -24,9 +24,12 @@
 
 \item{dt_train}{a data.table with the training dataset}
 
-\item{optim}{boolean that determines whether or not the Bayesian network classifier parameters should be optimized}
+\item{optim}{boolean that determines whether or not the Bayesian network classifier parameters should be optimized. 
+Only the TAN models have parameters that can be optimized.}
 
-\item{cl_params}{vector with the parameters of the Bayesian network classifier. c(model, epsilon, n_folds, n_rounds)}
+\item{cl_params}{vector with the parameters of the Bayesian network classifier. c(n_folds, epsilon, smooth)}
+
+\item{dt}{a data.table with the training dataset}
 }
 \value{
 the prediction result vector
@@ -41,14 +44,23 @@ XGBoost augmented by the DBN forecasting. The horizon sets the length of
 the forecasting with the DBN model.
 
 Predict the objective variable in all the rows in a dataset using only
-the XGBoost model.
+the Bayseian network classifier.
 
 Fit the internal Bayesian network classifier
+
+Optimize the parameters of the internal classifier. 
+Slight changes with respect to the inherited function
 }
 \details{
 The model is defined as a DBN model that forecasts the state of a time-series
 based system and a Bayesian network classifier that classifies that predicted state.
-Predicting wittth bnclassify requires the gRain package, which has dependencies unavailable
+Predicting with bnclassify requires the gRain package, which has unavailable dependencies
 on CRAN that must be downloaded from bioconductor. It's kind of a pain, but there's not much I can
 do about it
 }
+\section{Fields}{
+
+\describe{
+\item{\code{mcuts}}{master set of cut points of the discretization process}
+}}
+

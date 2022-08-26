@@ -92,6 +92,9 @@ XGDBN <- R6::R6Class("XGDBN",
       if(optim)
         cl_params <- private$optimize_cl(dt_train)$optim$bestmem
       
+      if(is.null(cl_params))  # No optimization and no params provided by the user
+        cl_params <- c(1.26, 7, 258)
+      
       private$cl_params <- cl_params
       
       weights <- rep(1, dim(dt_train)[1])

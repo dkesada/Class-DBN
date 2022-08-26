@@ -59,7 +59,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
     
     #' @description
     #' Predict the objective variable in all the rows in a dataset using only
-    #' the XGBoost model. 
+    #' the Bayseian network classifier. 
     #' @param dt_test a data.table with the test dataset
     #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
@@ -67,9 +67,10 @@ BNCDBN <- R6::R6Class("BNCDBN",
     predict_cl = function(dt_test, print_res = T, conf_mat=F){
       browser()
       dt_test_mod <- copy(dt_test)
-      dt_test_mod[, eval(private$cl_obj_var) := NULL]
+      #dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
-      preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
+      dt_test_mod <- private$discretize_dt(dt_test_mod)
+      preds <- predict(private$cl, dt_test_mod)
       
       if(print_res)
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
@@ -98,15 +99,11 @@ BNCDBN <- R6::R6Class("BNCDBN",
       dt_train_red[, eval(private$id_var) := NULL]
       
       private$mcuts <- dt_train_red[, lapply(.SD, arules::discretize, breaks = 4, onlycuts = T), 
-                                    .SDcols = c("Edad", "IMC", dbn_obj_vars)]
+                                    .SDcols = c("Edad", "IMC", private$dbn_obj_vars_raw)]
       dt_train_red <- private$discretize_dt(dt_train_red)
       
-      if(cl_params[1] == 1){ # The tan_cl model only has the smooth parameter
-        private$optim_lower <- private$optim_lower[3] 
-        private$optim_upper <- private$optim_upper[3]
-      }
-      
-      browser()
+      if(is.null(cl_params))
+        cl_params <- c(0, 0, 0, 0)
       
       if(optim & (cl_params[1] > 0)){
         private$cl_params <- cl_params # I need to know my model type cl_params[1] inside the optimization process
@@ -114,8 +111,38 @@ BNCDBN <- R6::R6Class("BNCDBN",
       }
       
       model <-private$build_bnc(dt_train_red, cl_params)
-      private$cl <- lp(model, dt_disc, cl_params[4]) 
+      private$cl <- lp(model, dt_train_red, cl_params[4]) 
       private$cl_params <- cl_params
+    },
+    
+    #' @description
+    #' Optimize the parameters of the internal classifier. 
+    #' Slight changes with respect to the inherited function
+    #' @param dt a data.table with the training dataset
+    optimize_cl = function(dt){
+      test_id <- sample(unique(dt[, get(private$id_var)]), 
+                        length(unique(dt[, get(private$id_var)])) * private$optim_test_per)
+      dt_train <- dt[!(get(private$id_var) %in% test_id)]
+      dt_test <- dt[get(private$id_var) %in% test_id]
+      labels <- dt[, .SD, .SDcols = c(private$id_var, private$cl_obj_var)]
+      labels[, test := 0]
+      labels[get(private$id_var) %in% test_id, test := 1]
+      dt_train[, eval(private$cl_obj_var) := NULL]
+      dt_test[, eval(private$cl_obj_var) := NULL]
+      dt_train[, eval(private$id_var) := NULL]
+      dt_test[, eval(private$id_var) := NULL]
+      
+      if(private$cl_params[1] == 1) # We only optimize the smooth parameter in the case of the tan_cl
+        res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower[4], upper = private$optim_upper[4],
+                                control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
+                                dt_train, dt_test, labels, private$fscore)
+        
+      else
+        res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower, upper = private$optim_upper,
+                                control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
+                                dt_train, dt_test, labels, private$fscore)
+      
+      return(res)
     },
     
     # One to three parameters to optimize: the number of folds, the epsilon and the smooth
@@ -123,19 +150,17 @@ BNCDBN <- R6::R6Class("BNCDBN",
       print(params)
       
       if(cl_params[1] == 1){ # The tan_cl model only has the smooth parameter
-        model <-private$build_bnc(dt_train_red, cl_params)
-        private$cl <- lp(model, dt_disc, cl_params[4]) 
-      }#TODO
+        model <-private$build_bnc(dt_train_red, c(1, 0, 0, params))
+        cl <- lp(model, dt_disc, params) 
+      }
       
-      params[2] <- round(params[2])
-      params[3] <- round(params[3])
-      weights <- rep(1, dim(labels[test == 0])[1])
-      weights[labels[test == 0 & get(private$cl_obj_var) == 1, .I]] <- params[1]
-      cl <- xgboost(data = as.matrix(dt_train), 
-                           label = labels[test == 0, get(private$cl_obj_var)], weight = weights, 
-                           eval_metric = eval_metric, max.depth = params[2], nrounds = params[3],
-                           eta = 1, nthread = 2, objective = "binary:logistic", verbose = 0)
-      preds <- as.numeric(predict(cl, as.matrix(dt_test)) > 0.5)
+      else{
+        model <-private$build_bnc(dt_train_red, params)
+        cl <- lp(model, dt_disc, cl_params[4]) 
+      }
+      
+      preds <- predict(cl, dt_test)
+      browser()
       acc <- mean(labels[test == 1, get(private$cl_obj_var)] != preds) # Mean error
       
       return(acc)
@@ -145,11 +170,11 @@ BNCDBN <- R6::R6Class("BNCDBN",
     build_bnc = function(dt, cl_params){
       res <- bnclassify::nb(private$cl_obj_var, dt)
       if(cl_params[1] == 1)
-        res <- bnclassify::tan_cl(private$cl_obj_var, dt)
+        res <- bnclassify::tan_cl(private$cl_obj_var, dt, smooth = cl_params[4])
       else if(cl_params[1] == 2)
-        res <- bnclassify::tan_hc(private$cl_obj_var, dt, cl_params[2], cl_params[3], cl_params[4])
+        res <- bnclassify::tan_hc(private$cl_obj_var, dt, k = cl_params[2], epsilon = cl_params[3], smooth = cl_params[4])
       else if (cl_params[1] == 3)
-        res <- bnclassify::tan_hcsp(private$cl_obj_var, dt, cl_params[2], cl_params[3], cl_params[4])
+        res <- bnclassify::tan_hcsp(private$cl_obj_var, dt, k = cl_params[2], epsilon = cl_params[3], smooth = cl_params[4])
       
       return(res)
     },
