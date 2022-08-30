@@ -45,9 +45,9 @@ BNCDBN <- R6::R6Class("BNCDBN",
       dt_test_mod[orig_rows, eval(names(preds_net)) := preds_net,]
       dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
+      dt_test_mod <- private$discretize_dt(dt_test_mod)
       
-      
-      preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
+      preds <- predict(private$cl, dt_test_mod)
       
       if(print_res)
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))

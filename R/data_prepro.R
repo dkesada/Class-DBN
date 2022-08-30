@@ -95,6 +95,7 @@ main_mtdbn <- function(){
 #' @import bnclassify arules
 #' @export
 main_bncl <- function(){
+  sink(paste0("./output/bncl_", Sys.Date(), ".txt"))
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
@@ -111,20 +112,80 @@ main_bncl <- function(){
   
   dt_train <- dt_red[1:2925]
   dt_test <- dt_red[2926:3656]
-
-  browser()
-  model <- XGDBN::BNCDBN$new(itermax = 1)
+  
+  print("--------------------")
+  print("Naive Bayes approach")
+  print("--------------------")
+  
+  model <- XGDBN::BNCDBN$new(itermax = 100)
+  model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T, cl_params = c(0, 0, 0, 0))
+  
+  model$print_params()
+  
+  print("Baseline results: ")
+  print(model$predict_cl(dt_test))
+  
+  for(i in 1:20){
+    print(sprintf("Horizon %d results:", i))
+    model$predict(dt_test, horizon = i)
+  }
+  
+  print("--------------------")
+  print("TAN cl approach")
+  print("--------------------")
+  
+  model <- XGDBN::BNCDBN$new(itermax = 100)
+  model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T, cl_params = c(1, 0, 0, 0))
+  
+  model$print_params()
+  
+  print("Baseline results: ")
+  print(model$predict_cl(dt_test))
+  
+  for(i in 1:20){
+    print(sprintf("Horizon %d results:", i))
+    model$predict(dt_test, horizon = i)
+  }
+  
+  print("--------------------")
+  print("TAN HC approach")
+  print("--------------------")
+  
+  model <- XGDBN::BNCDBN$new(itermax = 100)
+  model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T, cl_params = c(2, 4, 0.5, 0.5))
+  
+  model$print_params()
+  
+  print("Baseline results: ")
+  print(model$predict_cl(dt_test))
+  
+  for(i in 1:20){
+    print(sprintf("Horizon %d results:", i))
+    model$predict(dt_test, horizon = i)
+  }
+  
+  print("--------------------")
+  print("TAN HCSP approach")
+  print("--------------------")
+  
+  model <- XGDBN::BNCDBN$new(itermax = 100)
   model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T, cl_params = c(3, 4, 0.5, 0.5))
   
+  model$print_params()
+  
   print("Baseline results: ")
-  model$predict_cl(dt_test)
+  print(model$predict_cl(dt_test))
   
-  # for(i in 1:20){
-  #   print(sprintf("Horizon %d results:", i))
-  #   model$predict(dt_test, horizon = i)
-  # }
+  for(i in 1:20){
+    print(sprintf("Horizon %d results:", i))
+    model$predict(dt_test, horizon = i)
+  }
   
+  sink()
 }
 
 #' Main body of the experiment

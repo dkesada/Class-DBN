@@ -59,6 +59,8 @@ the forecasting with the DBN model.
 Predict the objective variable in all the rows in a dataset using only
 the classifier model.
 
+Print the parameters used to train the model
+
 Fit the internal DBN
 
 Fit the internal classifier

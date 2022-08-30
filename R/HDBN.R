@@ -74,6 +74,21 @@ HDBN <- R6::R6Class("HDBN",
     #' @return the prediction result vector
     predict_cl = function(dt_test, print_res, conf_mat){
       stop("To be implemented.")
+    },
+    
+    #' @description
+    #' Print the parameters used to train the model 
+    print_params = function(){
+      cat("Parameters used during training: \n")
+      cat("Classifier params: ", private$cl_params, "\n")
+      cat("Classifier objective var: ", private$cl_obj_var, "\n")
+      cat("DBN objective vars: ", private$dbn_obj_vars_raw, "\n")
+      cat("Id variable: ", private$id_var, "\n")
+      cat("Size of the DBN: ", private$size, "\n")
+      cat("Lower bounds for the optimization: ", private$optim_lower, "\n")
+      cat("Upper bounds for the optimization: ", private$optim_upper, "\n")
+      cat("Maximum iterations of the optimizer: ", private$optim_itermax, "\n")
+      cat("Percentage of instances in test: ", private$optim_test_per, "\n")
     }
    
   ),
