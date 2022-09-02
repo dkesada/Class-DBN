@@ -79,3 +79,17 @@ eval_xgboost <- function(params, dt_train, dt_train_red, dt_test, dt_test_red, e
   
   return(acc)
 }
+
+# Create a combination of m disjoint sets of k elements each from the original set n
+# It will only create 1 combination, not all the existing ones like a leave-3-out cross-validation
+cross_sets <- function(n, k){
+  res <- vector(mode = "list", length = floor(length(n) / k))
+  
+  for(i in 1:length(res)){
+    ids <- sample.int(length(n), size = k, replace = F)
+    res[[i]] <- n[ids]
+    n <- n[-ids]
+  }
+  
+  return(res)
+}

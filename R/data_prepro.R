@@ -9,6 +9,36 @@ library(DEoptim)
 # Tests
 #################################################################
 
+#' @export
+main_cv <- function(foo, k = 100, horizon = 20){
+  sink(paste0("./output/bncl_", Sys.Date(), ".txt"))
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  
+  res_matrix <- matrix(nrow = horizon+1, ncol = 3, 0) # 5 different models, 4 columns: accuracy, exec_time and train_time
+  cv_sets <- cross_sets(dt[, unique(get(id_var))], k)
+  rm(dt)
+  # res_mae <- matrix(nrow = 0, ncol = horizon+1) # I cannot know how many rows do I need without folding the test dataset and counting the number of needed repetitions, so I'll rbind
+  # res_mape <- matrix(nrow = 0, ncol = horizon+1)
+  cols_res <- paste0("hor_", seq(horizon))
+  colnames(res_mae) <- c("baseline", cols_res)
+  colnames(res_mape) <- c("baseline", cols_res)
+  
+  for(i in 1:length(cv_sets)){
+    cat(paste0("Currently on the fold number ", i, " out of ", length(cv_sets), "\n"))
+    res <- foo(cv_sets[[1]], horizon)
+    print_current_results(res_file, res_tmp$mean_res, i)
+    
+    res_matrix <- res_matrix + res_tmp$mean_res
+    #res_mae <- rbind(res_mae, res_tmp$mae)
+    #res_mape <- rbind(res_mape, res_tmp$mape)
+  }
+  
+  sink()
+}
+
 # - Get the hybrid model inside a portable R6 class
 # - Get a decent pipeline for the experiment, not all in a single script
 
@@ -94,7 +124,51 @@ main_mtdbn <- function(){
 #' Starting point of the whole process
 #' @import bnclassify arules
 #' @export
-main_bncl <- function(){
+main_bncl_single <- function(cv_sets, horizon){
+  res <- rep(0, horizon+1)
+  size <- 2
+  method <- "dmmhc"
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
+  var_sets$cte[2] <- "SEXO"
+  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
+  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
+  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
+  cl_obj_var <- "Crit"
+  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, cl_obj_var)]  # Can also try analit_full
+  
+  dt_train <- dt_red[get(id_var) %in% eval(cv_sets)]
+  dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
+  
+  model <- XGDBN::BNCDBN$new(itermax = 100)
+  model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T, cl_params = c(0, 0, 0, 0))
+  
+  model$print_params()
+  
+  browser()
+  print("Baseline results: ")
+  preds <- model$predict_cl(dt_test)
+  res[1] <- mean(dt_test[, get(cl_obj_var)] == res)
+  
+  for(i in 1:horizon){
+    print(sprintf("Horizon %d results:", i))
+    preds <- model$predict(dt_test, horizon = i)
+    res[i+1] <- mean(dt_test[, get(cl_obj_var)] == res)
+  }
+  
+  return(res)
+}
+
+#' Main body trying bayesian classifiers
+#' 
+#' Starting point of the whole process
+#' @import bnclassify arules
+#' @export
+main_bncl_full <- function(){
   sink(paste0("./output/bncl_", Sys.Date(), ".txt"))
   size <- 2
   method <- "dmmhc"
