@@ -10,30 +10,32 @@ library(DEoptim)
 #################################################################
 
 #' @export
-main_cv <- function(foo, k = 100, horizon = 20){
-  sink(paste0("./output/bncl_", Sys.Date(), ".txt"))
+main_cv <- function(foo, k = 100, horizon = 20, suffix = "_nb"){
+  sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
   dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
   dt <- factorize_character(dt)
   
-  res_matrix <- matrix(nrow = horizon+1, ncol = 3, 0) # 5 different models, 4 columns: accuracy, exec_time and train_time
   cv_sets <- cross_sets(dt[, unique(get(id_var))], k)
+  res_matrix <- matrix(nrow = horizon+1, ncol = length(cv_sets), 0) # Each cv up to the desired horizon 
   rm(dt)
-  # res_mae <- matrix(nrow = 0, ncol = horizon+1) # I cannot know how many rows do I need without folding the test dataset and counting the number of needed repetitions, so I'll rbind
-  # res_mape <- matrix(nrow = 0, ncol = horizon+1)
   cols_res <- paste0("hor_", seq(horizon))
-  colnames(res_mae) <- c("baseline", cols_res)
-  colnames(res_mape) <- c("baseline", cols_res)
+  browser()
   
   for(i in 1:length(cv_sets)){
     cat(paste0("Currently on the fold number ", i, " out of ", length(cv_sets), "\n"))
     res <- foo(cv_sets[[1]], horizon)
-    print_current_results(res_file, res_tmp$mean_res, i)
+    cat(paste0(c("Results: ", res, "\n")))
     
-    res_matrix <- res_matrix + res_tmp$mean_res
-    #res_mae <- rbind(res_mae, res_tmp$mae)
-    #res_mape <- rbind(res_mape, res_tmp$mape)
+    res_matrix[,i] <- res
+  }
+  
+  cat("Final mean error by horizon:\n")
+  idx <- 0
+  for(i in apply(res_matrix, 1, mean)){
+    cat(paste0("Error in horizon ", idx, ": ", i, "\n"))
+    idx <- idx + 1
   }
   
   sink()
@@ -149,15 +151,14 @@ main_bncl_single <- function(cv_sets, horizon){
   
   model$print_params()
   
-  browser()
-  print("Baseline results: ")
+  cat("Baseline results: \n")
   preds <- model$predict_cl(dt_test)
-  res[1] <- mean(dt_test[, get(cl_obj_var)] == res)
-  
+  res[1] <- mean(dt_test[, get(cl_obj_var)] == preds)
+
   for(i in 1:horizon){
-    print(sprintf("Horizon %d results:", i))
+    cat(sprintf("Horizon %d results:\n", i))
     preds <- model$predict(dt_test, horizon = i)
-    res[i+1] <- mean(dt_test[, get(cl_obj_var)] == res)
+    res[i+1] <- mean(dt_test[, get(cl_obj_var)] == preds)
   }
   
   return(res)
