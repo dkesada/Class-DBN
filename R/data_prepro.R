@@ -11,10 +11,15 @@ library(DEoptim)
 
 #' @export
 run_all <- function(){
+  print("Executing the xgb model:")
   main_cv(main_xgb, horizon = 20, suffix = "xgb")
+  print("Executing the naive Bayes model:")
   main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
+  print("Executing the TAN CL model:")
   main_cv(main_bncl_single, horizon = 20, suffix = "cl", cl_params = c(1,0,0,0))
+  print("Executing the TAN HC model:")
   main_cv(main_bncl_single, horizon = 20, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
+  print("Executing the TAN HCSP model:")
   main_cv(main_bncl_single, horizon = 20, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
 }
 
