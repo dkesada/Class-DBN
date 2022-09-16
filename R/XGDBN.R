@@ -68,7 +68,7 @@ XGDBN <- R6::R6Class("XGDBN",
       preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
       if(print_res)
-        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)

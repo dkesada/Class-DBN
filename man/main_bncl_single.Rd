@@ -4,7 +4,7 @@
 \alias{main_bncl_single}
 \title{Main body trying bayesian classifiers}
 \usage{
-main_bncl_single(cv_sets, horizon)
+main_bncl_single(cv_sets, horizon, cl_params = c(0, 0, 0, 0))
 }
 \description{
 Starting point of the whole process

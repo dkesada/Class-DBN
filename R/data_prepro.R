@@ -10,7 +10,16 @@ library(DEoptim)
 #################################################################
 
 #' @export
-main_cv <- function(foo, k = 100, horizon = 20, suffix = "_nb"){
+run_all <- function(){
+  main_cv(main_xgb, horizon = 20, suffix = "xgb")
+  main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
+  main_cv(main_bncl_single, horizon = 20, suffix = "cl", cl_params = c(1,0,0,0))
+  main_cv(main_bncl_single, horizon = 20, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
+  main_cv(main_bncl_single, horizon = 20, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
+}
+
+#' @export
+main_cv <- function(foo, k = 100, horizon = 20, suffix = "nb", ...){
   sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
@@ -18,61 +27,38 @@ main_cv <- function(foo, k = 100, horizon = 20, suffix = "_nb"){
   dt <- factorize_character(dt)
   
   cv_sets <- cross_sets(dt[, unique(get(id_var))], k)
+  
+  cat("Generated folds:\n")
+  print(cv_sets)
+  
   res_matrix <- matrix(nrow = horizon+1, ncol = length(cv_sets), 0) # Each cv up to the desired horizon 
+  res_matrix <- matrix(nrow = horizon+1, ncol = 4, 0) # Acc, f_scr, train_t, exec_t up to horizon 20 
   rm(dt)
-  cols_res <- paste0("hor_", seq(horizon))
-  browser()
   
   for(i in 1:length(cv_sets)){
     cat(paste0("Currently on the fold number ", i, " out of ", length(cv_sets), "\n"))
-    res <- foo(cv_sets[[1]], horizon)
-    cat(paste0(c("Results: ", res, "\n")))
+    res <- foo(cv_sets[[1]], horizon, ...)
+    cat(paste0(c("Results of the fold:\n")))
+    print(res)
     
-    res_matrix[,i] <- res
+    res_matrix <- res_matrix + res
   }
   
+  res_matrix <- res_matrix / length(cv_sets)
+  
+  cat("Final results matrix:\n")
+  print(res_matrix)
+  
   cat("Final mean error by horizon:\n")
-  idx <- 0
-  for(i in apply(res_matrix, 1, mean)){
-    cat(paste0("Error in horizon ", idx, ": ", i, "\n"))
-    idx <- idx + 1
+  cat(paste0("Average training time of the model: ", res_matrix[1,4], " seconds.\n"))
+  cat("Final results by horizon:\n")
+  for(i in 1:nrow(res_matrix)){
+    cat(paste0("Error in horizon ", i-1, ": ", res_matrix[i, 1], "\n"))
+    cat(paste0("F1score in horizon ", i-1, ": ", res_matrix[i, 2], "\n"))
+    cat(paste0("Execution time for horizon ", i-1, ": ", res_matrix[i, 3], "\n"))
   }
   
   sink()
-}
-
-# - Get the hybrid model inside a portable R6 class
-# - Get a decent pipeline for the experiment, not all in a single script
-
-#' Main body with R6 encapsulation
-#' 
-#' Starting point of the whole process
-#' @import data.table jsonlite xgboost dbnR pso DEoptim
-#' @export
-main_r6 <- function(){
-  size <- 2
-  method <- "dmmhc"
-  id_var <- "REGISTRO"
-  dt <- fread("./data/FJD_6.csv")
-  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt <- factorize_character(dt)
-  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
-  var_sets$cte[2] <- "SEXO"
-  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
-  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
-  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
-  xgb_obj_var <- "Crit"
-  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
-  
-  dt_train <- dt_red[1:2925]
-  dt_test <- dt_red[2926:3656]
-  
-  model <- XGDBN::XGDBN$new(itermax = 1)
-  model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
-                  dbn_obj_vars, seed = 42, optim = T)
-  
-  model$predict(dt_test)
-  model$predict_cl(dt_test)
 }
 
 #' Main body with R6 encapsulation and testing of horizons
@@ -80,7 +66,8 @@ main_r6 <- function(){
 #' Starting point of the whole process
 #' @import data.table jsonlite xgboost dbnR pso DEoptim
 #' @export
-main_hor <- function(){
+main_xgb <- function(cv_sets, horizon){
+  res <- matrix(nrow = horizon +1, ncol = 4)
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
@@ -95,21 +82,37 @@ main_hor <- function(){
   xgb_obj_var <- "Crit"
   dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
   
-  dt_train <- dt_red[1:2925]
-  dt_test <- dt_red[2926:3656]
+  dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
+  dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
   model <- XGDBN::XGDBN$new(itermax = 100)
+  train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
+  train_t <- Sys.time() - train_t
+  res[,4] <- train_t
   
-  print("Baseline results: ")
-  model$predict_cl(dt_test)
+  model$print_params()
   
-  for(i in 1:20){
-    print(sprintf("Horizon %d results:", i))
-    model$predict(dt_test, horizon = i)
+  cat("Baseline results: \n")
+  exec_t <- Sys.time()
+  preds <- model$predict_cl(dt_test)
+  exec_t <- Sys.time() - exec_t
+  res[1,1] <- mean(dt_test[, get(xgb_obj_var)] == preds)
+  res[1,2] <- f1score(dt_test[, get(xgb_obj_var)], preds)
+  res[1,3] <- exec_t
+  
+  for(i in 1:horizon){
+    cat(sprintf("Horizon %d results:\n", i))
+    exec_t <- Sys.time()
+    preds <- model$predict(dt_test, horizon = i)
+    exec_t <- Sys.time() - exec_t
+    res[i+1,1] <- mean(dt_test[, get(xgb_obj_var)] == preds)
+    res[i+1,2] <- f1score(dt_test[, get(xgb_obj_var)], preds)
+    res[i+1,3] <- exec_t
   }
   
+  return(res)
 }
 
 #' Main body trying out model tree dynamic Bayesian networks
@@ -126,8 +129,8 @@ main_mtdbn <- function(){
 #' Starting point of the whole process
 #' @import bnclassify arules
 #' @export
-main_bncl_single <- function(cv_sets, horizon){
-  res <- rep(0, horizon+1)
+main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
+  res <- matrix(nrow = horizon +1, ncol = 4)
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
@@ -142,23 +145,34 @@ main_bncl_single <- function(cv_sets, horizon){
   cl_obj_var <- "Crit"
   dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, cl_obj_var)]  # Can also try analit_full
   
-  dt_train <- dt_red[get(id_var) %in% eval(cv_sets)]
+  dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
   dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
   model <- XGDBN::BNCDBN$new(itermax = 100)
+  train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
-                  dbn_obj_vars, seed = 42, optim = T, cl_params = c(0, 0, 0, 0))
+                  dbn_obj_vars, seed = 42, optim = T, cl_params = cl_params)
+  train_t <- Sys.time() - train_t
+  res[,4] <- train_t
   
   model$print_params()
   
   cat("Baseline results: \n")
+  exec_t <- Sys.time()
   preds <- model$predict_cl(dt_test)
-  res[1] <- mean(dt_test[, get(cl_obj_var)] == preds)
+  exec_t <- Sys.time() - exec_t
+  res[1,1] <- mean(dt_test[, get(cl_obj_var)] == preds)
+  res[1,2] <- f1score(dt_test[, get(cl_obj_var)], preds)
+  res[1,3] <- exec_t
 
   for(i in 1:horizon){
     cat(sprintf("Horizon %d results:\n", i))
+    exec_t <- Sys.time()
     preds <- model$predict(dt_test, horizon = i)
-    res[i+1] <- mean(dt_test[, get(cl_obj_var)] == preds)
+    exec_t <- Sys.time() - exec_t
+    res[i+1,1] <- mean(dt_test[, get(cl_obj_var)] == preds)
+    res[i+1,2] <- f1score(dt_test[, get(cl_obj_var)], preds)
+    res[i+1,3] <- exec_t
   }
   
   return(res)
@@ -261,130 +275,4 @@ main_bncl_full <- function(){
   }
   
   sink()
-}
-
-#' Main body of the experiment
-#' 
-#' For now, a long script with the first experiment
-#' @import data.table jsonlite xgboost dbnR pso DEoptim
-#' @export
-main <- function(){
-  size <- 2
-  id_var <- "REGISTRO"
-  dt <- fread("./data/FJD_6.csv")
-  dt[, Critico := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt_old <- dt[Ola != 6]
-  dt_6 <- dt[Ola == 6]
-  dt_old <- factorize_character(dt_old)
-  dt_6 <- factorize_character(dt_6)
-  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
-  var_sets$cte[2] <- "SEXO"
-  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
-  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
-  
-  # 6th wave
-  set.seed(42)
-  test_id <- sample(unique(dt_6[, get(id_var)]), length(unique(dt_6[, get(id_var)]))*0.2) # Get 20% of patients for the test dataset
-  dt_train <- dt_6[!(get(id_var) %in% test_id)]
-  dt_test <- dt_6[get(id_var) %in% test_id]
-  dt_train_red <- dt_train[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red)]
-  dt_test_red <- dt_test[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red)]
-  
-  weights <- rep(1, dim(dt_train)[1])
-  weights[dt_train$Critico == 1] <- 1
-  
-  bstSparse <- xgboost(data = as.matrix(dt_train_red), label = dt_train$Critico,
-                       weight = weights, eval_metric = fscore, max.depth = 4,
-                       eta = 1, nthread = 2, nrounds = 100, objective = "binary:logistic")
-  preds <- as.numeric(predict(bstSparse, as.matrix(dt_test_red)) > 0.5)
-  mean(dt_test$Critico != preds)
-  conf_matrix(dt_test$Critico, preds)
-  
-  print(xgb.importance(model = bstSparse))
-  
-  # Var subset selection TODO
-  
-  # Optim params xgboost
-  
-  par <- c(2, 2, 20) # Initial parameters: weight 2, max.depth 2 and nrounds 20
-  lower <- c(0.1, 1, 10)
-  upper <- c(5, 10, 500)
-  ndeps <- c(0.7, 10, 200)
-  
-  # With regular L-BFGS-B optimization. Awful results with the rounding of parameters
-  # res <- optim(par = par, fn = eval_xgboost, gr = NULL, dt_train, dt_train_red, dt_test, dt_test_red, fscore,
-  #              method = "L-BFGS-B", lower = lower, upper = upper, control = list(maxit = 100, ndeps = ndeps))
-  
-  # With pso 
-  # res <- pso::psoptim(par = par, fn = eval_xgboost, gr = NULL, dt_train, dt_train_red, dt_test, dt_test_red, fscore,
-  #                     lower = lower, upper = upper, control = list(maxit = 100))
-  # Best val: 0.1938, par:  0.2369057   9.9978955 485.5463872
-  # Confusion matrix:
-  #             Orig
-  #           1      0
-  # 
-  # Pred  1   74     55
-  # 
-  #       0   153     791
-  
-  # With differential evolution. Best option
-  res <- DEoptim::DEoptim(fn = eval_xgboost, lower = lower, upper = upper,
-                          control = DEoptim::DEoptim.control(itermax = 100),
-                          dt_train, dt_train_red, dt_test, dt_test_red, fscore)
-  # Iteration: 100 bestvalit: 0.174278 bestmemit:    0.677691    8.486887   85.252797
-  # Iteration: 100 bestvalit: 0.163094 bestmemit:    0.162297    4.962632  424.167746
-  # Confusion matrix:
-  #             Orig
-  #           1      0
-  # 
-  # Pred  1   91     51
-  # 
-  #       0   136     795
-  
-  browser()
-  
-  # Full data
-  dt_old_red <- dt_old[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit)]
-  dt_6_red <- dt_6[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit)]
-  
-  weights <- rep(1, dim(dt_old)[1])
-  weights[dt_old$Critico == 1] <- 1
-  
-  bstSparse <- xgboost(data = as.matrix(dt_old_red), label = dt_old$Critico,
-                       weight = weights, eval_metric = evalerror, max.depth = 2,
-                       eta = 1, nthread = 2, nrounds = 150, objective = "binary:logistic")
-  preds <- as.numeric(predict(bstSparse, as.matrix(dt_6_red)) > 0.5)
-  mean(dt_6$Critico != preds)
-  conf_matrix(dt_6$Critico, preds)
-  
-  print(xgb.importance(model = bstSparse))
-  
-  # ---------------------------------------------------------------------------------------
-  
-  del_vars <- c("orig_row_t_0", "orig_row_t_1")
-  obj_vars <- sapply(var_sets$analit_red, function(x){paste0(x, "_t_0")}, USE.NAMES = F)
-  dt_test_mod <- copy(dt_test)
-  dt_test_mod[, orig_row := .I]
-  f_dt_train <- dbnR::filtered_fold_dt(dt_train[, .SD, .SDcols = c(var_sets$analit_red, "REGISTRO")], size, id_var) 
-  #dt_train[, eval(id_var) := NULL]
-  f_dt_test <- dbnR::filtered_fold_dt(dt_test_mod[, .SD, .SDcols = c(var_sets$analit_red, "REGISTRO", "orig_row")], size, id_var)
-  orig_rows <- f_dt_test$orig_row_t_1
-  f_dt_test[, (del_vars) := NULL]
-  
-  net <- dbnR::learn_dbn_struc(dt = NULL, size = size, method = "natPsoho", f_dt = f_dt_train, n_inds = 50)
-  fit <- dbnR::fit_dbn_params(net, f_dt_train)
-  preds_net <- suppressWarnings(predict_dt(fit, f_dt_test, obj_nodes = obj_vars))
-  preds_net[, nrow := NULL]
-  preds_net <- setnames(preds_net, old = names(preds_net), new = var_sets$analit_red)
-  dt_test_mod <- copy(dt_test)
-  dt_test_mod[orig_rows, eval(names(preds_net)) := preds_net,]
-  
-  bstSparse <- xgboost(data = as.matrix(dt_train_red), label = dt_train$Critico,
-                       weight = weights, eval_metric = fscore, max.depth = 4,
-                       eta = 1, nthread = 2, nrounds = 20, objective = "binary:logistic")
-  preds <- as.numeric(predict(bstSparse, as.matrix(dt_test_mod[, .SD, .SDcols = names(dt_test_red)])) > 0.5)
-  mean(dt_test$Critico != preds)
-  conf_matrix(dt_test$Critico, preds) # Comprobar cambio con respecto al original
-  
-  return(0)
 }

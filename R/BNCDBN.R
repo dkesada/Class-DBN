@@ -72,7 +72,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
       preds <- predict(private$cl, dt_test_mod)
       
       if(print_res)
-        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)

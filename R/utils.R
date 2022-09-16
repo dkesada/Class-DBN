@@ -63,6 +63,17 @@ fscore <- function(preds, dtrain){
   return(list(metric = "fscore", value = err))
 }
 
+f1score <- function(orig, preds){
+  tp <- sum(orig == 1 & preds == 1)
+  fp <- sum(orig == 0 & preds == 1)
+  fn <- sum(orig == 1 & preds == 0)
+  precision <- tp / (tp + fp)
+  recall <- tp / (tp + fn)
+  res <- 2 * precision * recall / (precision + recall)
+  
+  return(res)
+}
+
 # Three parameters to optimize: the weight of critical cases, the max.depth and the number of rounds
 eval_xgboost <- function(params, dt_train, dt_train_red, dt_test, dt_test_red, eval_metric){
   print(params)
