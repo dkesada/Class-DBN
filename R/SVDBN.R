@@ -113,11 +113,11 @@ SVDBN <- R6::R6Class("SVDBN",
     eval_cl = function(params, dt_train, dt_test, labels, eval_metric){
       print(params)
       params[2] <- round(params[2])
-      weights <- c("0" = 1, "1" = cl_params[1])
+      weights <- c("0" = 1, "1" = params[1])
       dt_train[, eval(private$cl_obj_var) := labels[test == 0, get(private$cl_obj_var)]]
       cl <- e1071::svm(private$formula, data = dt_train, 
                        type = "C", class.weights = weights, 
-                       gamma = 2^cl_params[3], cost = 2^cl_params[4])
+                       gamma = 2^params[3], cost = 2^params[4])
       preds <- predict(cl, dt_test)
       
       acc <- mean(labels[test == 1, get(private$cl_obj_var)] != preds) # Mean error

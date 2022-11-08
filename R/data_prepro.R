@@ -11,16 +11,18 @@ library(DEoptim)
 
 #' @export
 run_all <- function(){
-  print("Executing the xgb model:")
-  main_cv(main_xgb, horizon = 20, suffix = "xgb")
-  print("Executing the naive Bayes model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
-  print("Executing the TAN CL model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "cl", cl_params = c(1,0,0,0))
-  print("Executing the TAN HC model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
-  print("Executing the TAN HCSP model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
+  # print("Executing the xgb model:")
+  # main_cv(main_xgb, horizon = 20, suffix = "xgb")
+  print("Executing the svm model:")
+  main_cv(main_svm, horizon = 20, suffix = "svm")
+  # print("Executing the naive Bayes model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
+  # print("Executing the TAN CL model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "cl", cl_params = c(1,0,0,0))
+  # print("Executing the TAN HC model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
+  # print("Executing the TAN HCSP model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
 }
 
 #' @export
@@ -144,7 +146,7 @@ main_svm <- function(cv_sets, horizon){
   dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
   dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
-  model <- SVDBN::SVDBN$new(itermax = 100)
+  model <- XGDBN::SVDBN$new(itermax = 100)
   train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, svm_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
