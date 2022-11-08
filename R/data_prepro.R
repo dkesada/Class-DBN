@@ -24,8 +24,8 @@ run_all <- function(){
 }
 
 #' @export
-main_cv <- function(foo, k = 100, horizon = 20, suffix = "nb", ...){
-  sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
+main_cv <- function(foo, k = 10, horizon = 10, suffix = "nb", ...){
+  #sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
   dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
@@ -63,7 +63,7 @@ main_cv <- function(foo, k = 100, horizon = 20, suffix = "nb", ...){
     cat(paste0("Execution time for horizon ", i-1, ": ", res_matrix[i, 3], "\n"))
   }
   
-  sink()
+  #sink()
 }
 
 #' Main body with R6 encapsulation and testing of horizons
@@ -114,6 +114,60 @@ main_xgb <- function(cv_sets, horizon){
     exec_t <- Sys.time() - exec_t
     res[i+1,1] <- mean(dt_test[, get(xgb_obj_var)] == preds)
     res[i+1,2] <- f1score(dt_test[, get(xgb_obj_var)], preds)
+    res[i+1,3] <- exec_t
+  }
+  
+  return(res)
+}
+
+#' Main body with R6 encapsulation and testing of horizons
+#' 
+#' Starting point of the whole process
+#' @import data.table jsonlite e1071 dbnR pso DEoptim
+#' @export
+main_svm <- function(cv_sets, horizon){
+  res <- matrix(nrow = horizon +1, ncol = 4)
+  size <- 2
+  method <- "dmmhc"
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
+  var_sets$cte[2] <- "SEXO"
+  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
+  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
+  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
+  svm_obj_var <- "Crit"
+  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, svm_obj_var)]  # Can also try analit_full
+  
+  dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
+  dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
+  
+  model <- SVDBN::SVDBN$new(itermax = 100)
+  train_t <- Sys.time()
+  model$fit_model(dt_train, id_var, size, method, svm_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T)
+  train_t <- Sys.time() - train_t
+  res[,4] <- train_t
+  
+  model$print_params()
+  
+  cat("Baseline results: \n")
+  exec_t <- Sys.time()
+  preds <- model$predict_cl(dt_test)
+  exec_t <- Sys.time() - exec_t
+  res[1,1] <- mean(dt_test[, get(svm_obj_var)] == preds)
+  res[1,2] <- f1score(dt_test[, get(svm_obj_var)], preds)
+  res[1,3] <- exec_t
+  
+  for(i in 1:horizon){
+    cat(sprintf("Horizon %d results:\n", i))
+    exec_t <- Sys.time()
+    preds <- model$predict(dt_test, horizon = i)
+    exec_t <- Sys.time() - exec_t
+    res[i+1,1] <- mean(dt_test[, get(svm_obj_var)] == preds)
+    res[i+1,2] <- f1score(dt_test[, get(svm_obj_var)], preds)
     res[i+1,3] <- exec_t
   }
   

@@ -193,6 +193,13 @@ HDBN <- R6::R6Class("HDBN",
       return(list(metric = "fscore", value = err))
     },
     
+    dummyscore = function(preds, dtrain){
+      labels <- getinfo(dtrain, "label")
+      tp <- sum(labels == 1 & preds >= 0.5)
+      
+      return(list(metric = "dummyscore", value = tp))
+    },
+    
     conf_matrix = function(orig, preds){
       tp <- sum(orig == 1 & preds == 1)
       fp <- sum(orig == 0 & preds == 1)
