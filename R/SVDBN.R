@@ -43,7 +43,7 @@ SVDBN <- R6::R6Class("SVDBN",
       dt_test_mod[orig_rows, eval(names(preds_net)) := preds_net,]
       dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
-      preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
+      preds <- predict(private$cl, dt_test_mod)
       
       if(print_res)
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
@@ -102,7 +102,7 @@ SVDBN <- R6::R6Class("SVDBN",
       
       private$cl_params <- cl_params
       
-      weights <- c("0" = 1, "1" = cl_params[1])
+      weights <- c("0" = 1, "1" = cl_params[[1]])
       
       private$cl <- e1071::svm(private$formula, data = dt_train_red, 
                                type = "C", class.weights = weights, 
