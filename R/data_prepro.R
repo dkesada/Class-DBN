@@ -26,13 +26,14 @@ run_all <- function(){
 }
 
 #' @export
-main_cv <- function(foo, k = 10, horizon = 10, suffix = "nb", ...){
+main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){
   #sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
+  set.seed(seed)
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
   dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
   dt <- factorize_character(dt)
-  
+
   cv_sets <- cross_sets(dt[, unique(get(id_var))], k)
   
   cat("Generated folds:\n")
