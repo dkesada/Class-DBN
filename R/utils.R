@@ -104,3 +104,33 @@ cross_sets <- function(n, k){
   
   return(res)
 }
+
+# Shuffle the instances in a dt to a random order
+shuffle_dt <- function(dt){
+  order <- sample(dim(dt)[1])
+  
+  return(dt[order])
+}
+
+# Perform SMOTE over a dataset with the provided parameters
+# This function ensures that the objective variable is a factor, 
+# and returns it to numeric in case it was provided that way
+smote_dt <- function(dt, obj_var, perc_over, perc_under, shuffle = T){
+  num <- F
+  if(is.numeric(dt[, get(obj_var)])){
+    num <- T
+    dt <- copy(dt)
+    dt[, eval(obj_var) := as.factor(get(obj_var))]
+  }
+  
+  form <- as.formula(paste0(obj_var, " ~ ." ))
+  dt <- DMwR::SMOTE(form, dt, perc.over = perc_over, perc.under = perc_under)
+  
+  if(num)
+    dt[, eval(obj_var) := as.numeric(as.character(get(obj_var)))]
+  
+  if(shuffle)
+    dt <- shuffle_dt(dt)
+  
+  return(dt)
+}

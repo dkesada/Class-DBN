@@ -2,6 +2,7 @@
 
 export(BNCDBN)
 export(HDBN)
+export(NNDBN)
 export(SVDBN)
 export(XGDBN)
 export(main_bncl_full)

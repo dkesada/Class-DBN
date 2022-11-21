@@ -87,6 +87,13 @@ XGDBN <- R6::R6Class("XGDBN",
     fit_cl = function(dt_train, optim, cl_params){
       obj_col <- dt_train[, get(private$cl_obj_var)]
       dt_train_red <- copy(dt_train)
+      
+      # SMOTE should be optional
+      dt_train_red <- smote_dt(dt_train_red, obj_var = private$cl_obj_var, perc_over = 200, perc_under = 100)
+      obj_col <- dt_train_red[, get(private$cl_obj_var)]
+      dt_train <- copy(dt_train_red)
+      dt_train[, index := .I]
+      
       dt_train_red[, eval(private$id_var) := NULL]
       
       if(optim)
@@ -98,7 +105,7 @@ XGDBN <- R6::R6Class("XGDBN",
       private$cl_params <- cl_params
       
       weights <- rep(1, dim(dt_train)[1])
-      weights[dt_train[get(private$cl_obj_var) == 1, .I]] <- cl_params[1]
+      weights[dt_train[get(private$cl_obj_var) == 1, index]] <- cl_params[1]
       dt_train_red[, eval(private$cl_obj_var) := NULL]
       
       private$cl <- xgboost(data = as.matrix(dt_train_red), label = obj_col,
@@ -112,7 +119,9 @@ XGDBN <- R6::R6Class("XGDBN",
       params[2] <- round(params[2])
       params[3] <- round(params[3])
       weights <- rep(1, dim(labels[test == 0])[1])
-      weights[labels[test == 0 & get(private$cl_obj_var) == 1, .I]] <- params[1]
+      labels[test == 0, index := .I]
+      weights[labels[test == 0 & get(private$cl_obj_var) == 1, index]] <- params[1]
+      labels[, index := NULL]
       cl <- xgboost(data = as.matrix(dt_train), 
                            label = labels[test == 0, get(private$cl_obj_var)], weight = weights, 
                            eval_metric = eval_metric, max.depth = params[2], nrounds = params[3],

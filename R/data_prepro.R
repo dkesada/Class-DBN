@@ -11,10 +11,10 @@ library(DEoptim)
 
 #' @export
 run_all <- function(){
-  # print("Executing the xgb model:")
-  # main_cv(main_xgb, horizon = 20, suffix = "xgb")
-  print("Executing the svm model:")
-  main_cv(main_svm, horizon = 20, suffix = "svm")
+  print("Executing the xgb model:")
+  main_cv(main_xgb, horizon = 20, suffix = "xgb")
+  # print("Executing the svm model:")
+  # main_cv(main_svm, horizon = 20, suffix = "svm")
   # print("Executing the naive Bayes model:")
   # main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
   # print("Executing the TAN CL model:")
@@ -27,13 +27,13 @@ run_all <- function(){
 
 #' @export
 main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){
-  #sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
+  sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
   set.seed(seed)
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
   dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
   dt <- factorize_character(dt)
-
+  
   cv_sets <- cross_sets(dt[, unique(get(id_var))], k)
   
   cat("Generated folds:\n")
@@ -66,7 +66,7 @@ main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){
     cat(paste0("Execution time for horizon ", i-1, ": ", res_matrix[i, 3], "\n"))
   }
   
-  #sink()
+  sink()
 }
 
 #' Main body with R6 encapsulation and testing of horizons
