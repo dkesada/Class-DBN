@@ -137,3 +137,38 @@ NNDBN <- R6::R6Class("NNDBN",
     
   )
 )
+
+train_nn <- function(dt, obj_var){
+  dt <- shuffle_dt(dt)
+  dt_y <- dt[, get(obj_var)]
+  dt_x <- copy(dt)
+  dt_x[, eval(obj_var) := NULL]
+  
+  model = keras_model_sequential() %>%
+    layer_dense(units = 64, activation = "relu", input_shape = dim(dt_x)[2]) %>%
+    # layer_dense(units = 32, activation = "relu",
+    #             kernel_initializer = keras::initializer_constant(value=0)) %>%
+    layer_dense(units = 2, activation = "softmax")
+  
+  compile(model, loss = "categorical_crossentropy", optimizer = optimizer_rmsprop(learning_rate = 0.00001), metrics = "accuracy")
+  
+  history = fit(model, scale(as.matrix(dt_x)), to_categorical(dt_y, num_classes = 2), epochs = 50, batch_size = 32, validation_split = 0.2)
+  
+  plot(history)
+  
+  return(model)
+}
+
+predict_nn <- function(model, dt, obj_var){
+  dt_y <- dt[, get(obj_var)]
+  dt_x <- copy(dt)
+  dt_x[, eval(obj_var) := NULL]
+  
+  res <- predict(model, scale(as.matrix(dt_x))) > 0.5
+  res <- as.numeric(res[,2])
+  
+  print("Accuracy:")
+  print(mean(dt_y == res))
+  print("F-score:")
+  print(f1score(dt_y, res))
+}
