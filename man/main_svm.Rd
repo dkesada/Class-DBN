@@ -2,7 +2,7 @@
 % Please edit documentation in R/data_prepro.R
 \name{main_svm}
 \alias{main_svm}
-\title{Main body with R6 encapsulation and testing of horizons}
+\title{Main body with R6 encapsulation and testing of horizons for the SVM}
 \usage{
 main_svm(cv_sets, horizon)
 }

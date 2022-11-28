@@ -74,6 +74,32 @@ f1score <- function(orig, preds){
   return(res)
 }
 
+g_mean <- function(orig, preds){
+  tp <- sum(orig == 1 & preds == 1)
+  fp <- sum(orig == 0 & preds == 1)
+  fn <- sum(orig == 1 & preds == 0)
+  tn <- sum(orig == 0 & preds == 0)
+  recall <- tp / (tp + fn)
+  spec <- tn / (fp + tn)
+  res <- sqrt(spec * recall)
+  
+  return(res)
+}
+
+g_mean_s <- function(preds, dtrain){
+  labels <- getinfo(dtrain, "label")
+  tp <- sum(labels == 1 & preds >= 0.5)
+  fp <- sum(labels == 0 & preds >= 0.5)
+  fn <- sum(labels == 1 & preds < 0.5)
+  tn <- sum(labels == 0 & preds < 0.5)
+  
+  recall <- tp / (tp + fn)
+  spec <- tn / (fp + tn)
+  err <- as.numeric(sqrt(spec * recall))
+  
+  return(list(metric = "g-mean", value = err))
+}
+
 # Three parameters to optimize: the weight of critical cases, the max.depth and the number of rounds
 eval_xgboost <- function(params, dt_train, dt_train_red, dt_test, dt_test_red, eval_metric){
   print(params)

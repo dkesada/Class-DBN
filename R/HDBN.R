@@ -166,7 +166,7 @@ HDBN <- R6::R6Class("HDBN",
       
       res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower, upper = private$optim_upper,
                               control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
-                              dt_train, dt_test, labels, private$fscore)
+                              dt_train, dt_test, labels, private$g_mean_s)
       
       return(res)
     },
@@ -191,6 +191,19 @@ HDBN <- R6::R6Class("HDBN",
       err <- as.numeric(tp / (tp + 0.5 * (fp + fn)))
       
       return(list(metric = "fscore", value = err))
+    },
+    
+    g_mean_s = function(orig, preds){
+      tp <- sum(orig == 1 & preds == 1)
+      fp <- sum(orig == 0 & preds == 1)
+      fn <- sum(orig == 1 & preds == 0)
+      tn <- sum(orig == 0 & preds == 0)
+      
+      recall <- tp / (tp + fn)
+      spec <- tn / (fp + tn)
+      err <- as.numeric(sqrt(spec * recall))
+      
+      return(list(metric = "g-mean", value = err))
     },
     
     dummyscore = function(preds, dtrain){

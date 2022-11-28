@@ -11,10 +11,12 @@ library(DEoptim)
 
 #' @export
 run_all <- function(){
-  print("Executing the xgb model:")
-  main_cv(main_xgb, horizon = 20, suffix = "xgb")
+  # print("Executing the xgb model:")
+  # main_cv(main_xgb, horizon = 20, suffix = "xgb")
   # print("Executing the svm model:")
   # main_cv(main_svm, horizon = 20, suffix = "svm")
+  print("Executing the nn model:")
+  main_cv(main_nn, horizon = 20, suffix = "nn")
   # print("Executing the naive Bayes model:")
   # main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
   # print("Executing the TAN CL model:")
@@ -69,7 +71,7 @@ main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){
   sink()
 }
 
-#' Main body with R6 encapsulation and testing of horizons
+#' Main body with R6 encapsulation and testing of horizons for the XGB
 #' 
 #' Starting point of the whole process
 #' @import data.table jsonlite xgboost dbnR pso DEoptim
@@ -123,7 +125,7 @@ main_xgb <- function(cv_sets, horizon){
   return(res)
 }
 
-#' Main body with R6 encapsulation and testing of horizons
+#' Main body with R6 encapsulation and testing of horizons for the SVM
 #' 
 #' Starting point of the whole process
 #' @import data.table jsonlite e1071 dbnR pso DEoptim
@@ -171,6 +173,60 @@ main_svm <- function(cv_sets, horizon){
     exec_t <- Sys.time() - exec_t
     res[i+1,1] <- mean(dt_test[, get(svm_obj_var)] == preds)
     res[i+1,2] <- f1score(dt_test[, get(svm_obj_var)], preds)
+    res[i+1,3] <- exec_t
+  }
+  
+  return(res)
+}
+
+#' Main body with R6 encapsulation and testing of horizons for the NN
+#' 
+#' Starting point of the whole process
+#' @import data.table jsonlite keras dbnR DEoptim
+#' @export
+main_nn <- function(cv_sets, horizon){
+  res <- matrix(nrow = horizon +1, ncol = 4)
+  size <- 2
+  method <- "dmmhc"
+  id_var <- "REGISTRO"
+  dt <- fread("./data/FJD_6.csv")
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt <- factorize_character(dt)
+  var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
+  var_sets$cte[2] <- "SEXO"
+  var_sets$analit_full <- var_sets$analit_full[var_sets$analit_full %in% names(dt)]
+  var_sets$analit_red <- var_sets$analit_red[var_sets$analit_red %in% names(dt)]
+  dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
+  nn_obj_var <- "Crit"
+  dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, nn_obj_var)]  # Can also try analit_full
+  
+  dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
+  dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
+  
+  model <- XGDBN::NNDBN$new(itermax = 100)
+  train_t <- Sys.time()
+  model$fit_model(dt_train, id_var, size, method, nn_obj_var, 
+                  dbn_obj_vars, seed = 42, optim = T)
+  train_t <- Sys.time() - train_t
+  res[,4] <- train_t
+  
+  model$print_params()
+  browser()
+  cat("Baseline results: \n")
+  exec_t <- Sys.time()
+  preds <- model$predict_cl(dt_test)
+  exec_t <- Sys.time() - exec_t
+  res[1,1] <- mean(dt_test[, get(nn_obj_var)] == preds)
+  res[1,2] <- f1score(dt_test[, get(nn_obj_var)], preds)
+  res[1,3] <- exec_t
+  
+  for(i in 1:horizon){
+    cat(sprintf("Horizon %d results:\n", i))
+    exec_t <- Sys.time()
+    preds <- model$predict(dt_test, horizon = i)
+    exec_t <- Sys.time() - exec_t
+    res[i+1,1] <- mean(dt_test[, get(nn_obj_var)] == preds)
+    res[i+1,2] <- f1score(dt_test[, get(nn_obj_var)], preds)
     res[i+1,3] <- exec_t
   }
   

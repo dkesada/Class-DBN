@@ -26,7 +26,7 @@
 
 \item{optim}{boolean that determines whether or not the SVM parameters should be optimized}
 
-\item{cl_params}{vector with the parameters of the SVM c(weight, max_depth, n_rounds)}
+\item{cl_params}{vector with the parameters of the SVM c(weight, kernel, gamma, cost)}
 }
 \value{
 the prediction result vector

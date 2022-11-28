@@ -87,9 +87,8 @@ SVDBN <- R6::R6Class("SVDBN",
     #' Fit the internal SVM
     #' @param dt_train a data.table with the training dataset
     #' @param optim boolean that determines whether or not the SVM parameters should be optimized
-    #' @param cl_params vector with the parameters of the SVM c(weight, max_depth, n_rounds)
+    #' @param cl_params vector with the parameters of the SVM c(weight, kernel, gamma, cost)
     fit_cl = function(dt_train, optim, cl_params){
-      obj_col <- dt_train[, get(private$cl_obj_var)]
       dt_train_red <- copy(dt_train)
       dt_train_red[, eval(private$id_var) := NULL]
       private$formula <- as.formula(paste0(private$cl_obj_var, " ~ ." ))

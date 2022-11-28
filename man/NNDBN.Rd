@@ -4,9 +4,9 @@
 \alias{NNDBN}
 \title{R6 class that defines the NN + DBN model}
 \arguments{
-\item{lower}{lower bounds of the weight, kernel, gamma and cost}
+\item{lower}{lower bounds of the learning rate, epochs, batch size and recall}
 
-\item{upper}{upper bounds of the weight, kernel, gamma and cost}
+\item{upper}{upper bounds of the learning rate, epochs, batch size and recall}
 
 \item{itermax}{maximum number of iterations of the optimization process}
 
@@ -24,9 +24,9 @@
 
 \item{dt_train}{a data.table with the training dataset}
 
-\item{optim}{boolean that determines whether or not the SVM parameters should be optimized}
+\item{optim}{boolean that determines whether or not the NN parameters should be optimized}
 
-\item{cl_params}{vector with the parameters of the SVM c(weight, max_depth, n_rounds)}
+\item{cl_params}{vector with the parameters of the NN c(learn_rate, epochs, batch_size, recall)}
 }
 \value{
 the prediction result vector
@@ -43,7 +43,7 @@ the forecasting with the DBN model.
 Predict the objective variable in all the rows in a dataset using only
 the SVM model.
 
-Fit the internal SVM
+Fit the internal NN
 }
 \details{
 The model is defined as a DBN model that forecasts the state of a time-series
@@ -53,5 +53,9 @@ based system and a neural network model that classifies that predicted state.
 
 \describe{
 \item{\code{formula}}{the formula for the SVM model}
+
+\item{\code{center}}{the mean of the variables for normalization}
+
+\item{\code{scale}}{the standard deviation of the variables for normalization}
 }}
 
