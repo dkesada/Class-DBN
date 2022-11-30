@@ -133,7 +133,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
       
       res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower, upper = private$optim_upper,
                               control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
-                              dt_train, dt_test, private$fscore)
+                              dt_train, dt_test, private$gmean)
     
       return(res)
     },
@@ -147,7 +147,8 @@ BNCDBN <- R6::R6Class("BNCDBN",
       cl <- lp(model, dt_train, params[3]) 
       
       preds <- predict(cl, dt_test)
-      acc <- mean(dt_test[, get(private$cl_obj_var)] != preds)
+      
+      acc <- eval_metric(dt_test[, get(private$cl_obj_var)], preds)
       
       return(acc)
     },

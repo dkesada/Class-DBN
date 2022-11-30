@@ -14,8 +14,9 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param test_per percentage of instances assigned as test in the optimization
     #' @param optim_trace whether or not to print the progress of each optimization iteration
     initialize = function(lower = c(0.1, 1, 10), upper = c(5, 10, 500), 
-                          itermax = 100, test_per = 0.2, trace = TRUE){
+                          itermax = 100, test_per = 0.2, trace = TRUE, optim_f = "g_mean_xgb"){
       super$initialize(lower, upper, itermax, test_per, trace)
+      private$optim_f <- optim_f
     },
     
     #' @description
@@ -79,6 +80,9 @@ XGDBN <- R6::R6Class("XGDBN",
   ),
   
   private = list(
+    #' @field optim_f the internal optimization function for the XGBoost
+    optim_f = NULL,
+    
     #' @description
     #' Fit the internal XGBoost
     #' @param dt_train a data.table with the training dataset
@@ -89,11 +93,11 @@ XGDBN <- R6::R6Class("XGDBN",
       dt_train_red <- copy(dt_train)
       
       # SMOTE should be optional
-      # dt_train_red <- smote_dt(dt_train_red, obj_var = private$cl_obj_var, perc_over = 200, perc_under = 100)
+      # dt_train_red <- smote_dt(dt_train_red, obj_var = private$cl_obj_var, perc_over = 600, perc_under = 100)
       # obj_col <- dt_train_red[, get(private$cl_obj_var)]
       # dt_train <- copy(dt_train_red)
-      dt_train[, index := .I]
       
+      dt_train[, index := .I]
       dt_train_red[, eval(private$id_var) := NULL]
       
       if(optim)
@@ -109,7 +113,7 @@ XGDBN <- R6::R6Class("XGDBN",
       dt_train_red[, eval(private$cl_obj_var) := NULL]
       
       private$cl <- xgboost(data = as.matrix(dt_train_red), label = obj_col,
-                           weight = weights, eval_metric = fscore, max.depth = 4,
+                           weight = weights, eval_metric = private$get_optim_f(), max.depth = 4,
                            eta = 1, nthread = 2, nrounds = 20, objective = "binary:logistic")
     },
     
@@ -124,12 +128,46 @@ XGDBN <- R6::R6Class("XGDBN",
       labels[, index := NULL]
       cl <- xgboost(data = as.matrix(dt_train), 
                            label = labels[test == 0, get(private$cl_obj_var)], weight = weights, 
-                           eval_metric = eval_metric, max.depth = params[2], nrounds = params[3],
+                           eval_metric = private$get_optim_f(), max.depth = params[2], nrounds = params[3],
                            eta = 1, nthread = 2, objective = "binary:logistic", verbose = 0)
       preds <- as.numeric(predict(cl, as.matrix(dt_test)) > 0.5)
-      acc <- mean(labels[test == 1, get(private$cl_obj_var)] != preds) # Mean error
+      
+      acc <- eval_metric(labels[test == 1, get(private$cl_obj_var)], preds)
       
       return(acc)
+    },
+    
+    get_optim_f = function(){
+      res <- private$fscore_xgb
+      if(private$optim_f == "gmean")
+        res <- private$gmean_xgb
+      
+      return(res)
+    },
+    
+    # For the xgb internal optimization
+    fscore_xgb = function(preds, dtrain){
+      labels <- getinfo(dtrain, "label")
+      tp <- sum(labels == 1 & preds >= 0.5)
+      fp <- sum(labels == 0 & preds >= 0.5)
+      fn <- sum(labels == 1 & preds < 0.5)
+      err <- as.numeric(tp / (tp + 0.5 * (fp + fn)))
+      
+      return(list(metric = "fscore", value = err))
+    },
+    
+    # For the xgb internal optimization
+    gmean_xgb = function(orig, preds){
+      tp <- sum(orig == 1 & preds == 1)
+      fp <- sum(orig == 0 & preds == 1)
+      fn <- sum(orig == 1 & preds == 0)
+      tn <- sum(orig == 0 & preds == 0)
+      
+      recall <- tp / (tp + fn)
+      spec <- tn / (fp + tn)
+      err <- as.numeric(sqrt(spec * recall))
+      
+      return(list(metric = "g-mean", value = err))
     }
     
   )

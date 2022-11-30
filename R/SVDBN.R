@@ -119,19 +119,9 @@ SVDBN <- R6::R6Class("SVDBN",
                        gamma = 2^params[3], cost = 2^params[4])
       preds <- predict(cl, dt_test)
       
-      acc <- mean(labels[test == 1, get(private$cl_obj_var)] != preds) # Mean error
+      acc <- eval_metric(labels[test == 1, get(private$cl_obj_var)], preds)
       
       return(acc)
-    },
-    
-    fscore = function(preds, dtrain){
-      labels <- getinfo(dtrain, "label")
-      tp <- sum(labels == 1 & preds == 1)
-      fp <- sum(labels == 0 & preds == 1)
-      fn <- sum(labels == 1 & preds == 0)
-      err <- as.numeric(tp / (tp + 0.5 * (fp + fn)))
-      
-      return(list(metric = "fscore", value = err))
     }
     
   )

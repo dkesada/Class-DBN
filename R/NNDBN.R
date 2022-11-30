@@ -13,7 +13,7 @@ NNDBN <- R6::R6Class("NNDBN",
     #' @param itermax maximum number of iterations of the optimization process
     #' @param test_per percentage of instances assigned as test in the optimization
     #' @param optim_trace whether or not to print the progress of each optimization iteration
-    initialize = function(lower = c(0.5, 20, 2.5, 0.5), upper = c(6.49, 100, 8.49, 0.75), 
+    initialize = function(lower = c(1.5, 100, 2.5, 0.5), upper = c(6.49, 200, 8.49, 0.75), 
                           itermax = 100, test_per = 0.2, trace = TRUE){
       super$initialize(lower, upper, itermax, test_per, trace)
     },
@@ -150,7 +150,7 @@ NNDBN <- R6::R6Class("NNDBN",
       print(params)
       
       dt_train_sc <- scale(as.matrix(dt_train), center = private$center, scale = private$scale)
-      dt_test_sc <- scale(as.matrix(dt_train), center = private$center, scale = private$scale)
+      dt_test_sc <- scale(as.matrix(dt_test), center = private$center, scale = private$scale)
       
       cl <- private$keras_structure(dim(dt_train_sc)[2])
       
@@ -163,8 +163,8 @@ NNDBN <- R6::R6Class("NNDBN",
       preds <- predict(cl, dt_test_sc) > 0.5
       preds <- as.numeric(preds[,2])
 
-      acc <- eval_metric(labels[test == 0, get(private$cl_obj_var)], preds) # Check this
-      
+      acc <- eval_metric(labels[test == 1, get(private$cl_obj_var)], preds)
+
       return(acc)
     }
     

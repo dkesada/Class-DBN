@@ -49,3 +49,9 @@ Fit the internal XGBoost
 The model is defined as a DBN model that forecasts the state of a time-series
 based system and an XGBoost model that classifies that predicted state.
 }
+\section{Fields}{
+
+\describe{
+\item{\code{optim_f}}{the internal optimization function for the XGBoost}
+}}
+
