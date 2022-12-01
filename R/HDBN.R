@@ -184,9 +184,9 @@ HDBN <- R6::R6Class("HDBN",
     },
     
     fscore = function(orig, preds){
-      tp <- sum(labels == 1 & preds == 1)
-      fp <- sum(labels == 0 & preds == 1)
-      fn <- sum(labels == 1 & preds == 0)
+      tp <- sum(orig == 1 & preds == 1)
+      fp <- sum(orig == 0 & preds == 1)
+      fn <- sum(orig == 1 & preds == 0)
       
       err <- as.numeric(tp / (tp + 0.5 * (fp + fn)))
       if(is.na(err))

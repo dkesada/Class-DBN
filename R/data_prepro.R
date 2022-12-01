@@ -12,24 +12,25 @@ library(DEoptim)
 #' @export
 run_all <- function(){
   print("Executing the xgb model:")
-  main_cv(main_xgb, horizon = 20, suffix = "xgb")
-  print("Executing the svm model:")
-  main_cv(main_svm, horizon = 20, suffix = "svm")
-  print("Executing the nn model:")
-  main_cv(main_nn, horizon = 20, suffix = "nn")
-  print("Executing the naive Bayes model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
-  print("Executing the TAN CL model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "cl", cl_params = c(1,0,0,0))
-  print("Executing the TAN HC model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
-  print("Executing the TAN HCSP model:")
-  main_cv(main_bncl_single, horizon = 20, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
+  main_cv(main_xgb, horizon = 10, suffix = "xgb")
+  # print("Executing the svm model:")
+  # main_cv(main_svm, horizon = 20, suffix = "svm")
+  # print("Executing the nn model:")
+  # main_cv(main_nn, horizon = 20, suffix = "nn")
+  # print("Executing the naive Bayes model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
+  # print("Executing the TAN CL model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "cl", cl_params = c(1,0,0,0))
+  # print("Executing the TAN HC model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
+  # print("Executing the TAN HCSP model:")
+  # main_cv(main_bncl_single, horizon = 20, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
 }
 
 #' @export
 main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){
-  sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
+  #sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
+  
   set.seed(seed)
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
@@ -47,7 +48,7 @@ main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){
   
   for(i in 1:length(cv_sets)){
     cat(paste0("Currently on the fold number ", i, " out of ", length(cv_sets), "\n"))
-    res <- foo(cv_sets[[1]], horizon, ...)
+    res <- foo(cv_sets[[i]], horizon, ...)
     cat(paste0(c("Results of the fold:\n")))
     print(res)
     
@@ -82,7 +83,8 @@ main_xgb <- function(cv_sets, horizon){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt[, Crit := as.numeric(UCI == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -95,7 +97,7 @@ main_xgb <- function(cv_sets, horizon){
   dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
   dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
-  model <- XGDBN::XGDBN$new(itermax = 100)
+  model <- XGDBN::XGDBN$new(itermax = 3)
   train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)

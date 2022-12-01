@@ -45,8 +45,11 @@ SVDBN <- R6::R6Class("SVDBN",
       dt_test_mod[, eval(private$id_var) := NULL]
       preds <- predict(private$cl, dt_test_mod)
       
-      if(print_res)
-        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
+      if(print_res){
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+      }
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)
@@ -68,8 +71,11 @@ SVDBN <- R6::R6Class("SVDBN",
       dt_test_mod[, eval(private$id_var) := NULL]
       preds <- predict(private$cl, dt_test_mod)
       
-      if(print_res)
+      if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+      }
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)

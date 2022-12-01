@@ -14,7 +14,7 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param test_per percentage of instances assigned as test in the optimization
     #' @param optim_trace whether or not to print the progress of each optimization iteration
     initialize = function(lower = c(0.1, 1, 10), upper = c(5, 10, 500), 
-                          itermax = 100, test_per = 0.2, trace = TRUE, optim_f = "g_mean_xgb"){
+                          itermax = 100, test_per = 0.2, trace = TRUE, optim_f = "gmean"){
       super$initialize(lower, upper, itermax, test_per, trace)
       private$optim_f <- optim_f
     },
@@ -46,8 +46,11 @@ XGDBN <- R6::R6Class("XGDBN",
       dt_test_mod[, eval(private$id_var) := NULL]
       preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
-      if(print_res)
-        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds)))
+      if(print_res){
+        cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+      }
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)
@@ -68,8 +71,11 @@ XGDBN <- R6::R6Class("XGDBN",
       dt_test_mod[, eval(private$id_var) := NULL]
       preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
-      if(print_res)
+      if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+      }
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)
@@ -152,20 +158,25 @@ XGDBN <- R6::R6Class("XGDBN",
       fp <- sum(labels == 0 & preds >= 0.5)
       fn <- sum(labels == 1 & preds < 0.5)
       err <- as.numeric(tp / (tp + 0.5 * (fp + fn)))
+      if(is.na(err))
+        err <- 0
       
       return(list(metric = "fscore", value = err))
     },
     
     # For the xgb internal optimization
-    gmean_xgb = function(orig, preds){
-      tp <- sum(orig == 1 & preds == 1)
-      fp <- sum(orig == 0 & preds == 1)
-      fn <- sum(orig == 1 & preds == 0)
-      tn <- sum(orig == 0 & preds == 0)
+    gmean_xgb = function(preds, dtrain){
+      labels <- getinfo(dtrain, "label")
+      tp <- sum(labels == 1 & preds >= 0.5)
+      fp <- sum(labels == 0 & preds >= 0.5)
+      fn <- sum(labels == 1 & preds < 0.5)
+      tn <- sum(labels == 0 & preds < 0.5)
       
       recall <- tp / (tp + fn)
       spec <- tn / (fp + tn)
       err <- as.numeric(sqrt(spec * recall))
+      if(is.na(err))
+        err <- 0
       
       return(list(metric = "g-mean", value = err))
     }

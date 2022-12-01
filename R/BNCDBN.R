@@ -49,8 +49,11 @@ BNCDBN <- R6::R6Class("BNCDBN",
       
       preds <- predict(private$cl, dt_test_mod)
       
-      if(print_res)
+      if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+      }
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)
@@ -71,8 +74,11 @@ BNCDBN <- R6::R6Class("BNCDBN",
       dt_test_mod <- private$discretize_dt(dt_test_mod)
       preds <- predict(private$cl, dt_test_mod)
       
-      if(print_res)
+      if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+      }
       
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)

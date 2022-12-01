@@ -49,8 +49,8 @@ NNDBN <- R6::R6Class("NNDBN",
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", f1score(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", g_mean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
         
       if(conf_mat)
@@ -77,8 +77,8 @@ NNDBN <- R6::R6Class("NNDBN",
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", f1score(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", g_mean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
       
       if(conf_mat)

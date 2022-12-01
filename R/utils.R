@@ -70,6 +70,8 @@ f1score <- function(orig, preds){
   precision <- tp / (tp + fp)
   recall <- tp / (tp + fn)
   res <- 2 * precision * recall / (precision + recall)
+  if(is.na(res))
+    res <- 0
   
   return(res)
 }
@@ -82,6 +84,8 @@ g_mean <- function(orig, preds){
   recall <- tp / (tp + fn)
   spec <- tn / (fp + tn)
   res <- sqrt(spec * recall)
+  if(is.na(res))
+    res <- 0
   
   return(res)
 }
