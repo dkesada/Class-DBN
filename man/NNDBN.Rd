@@ -4,9 +4,9 @@
 \alias{NNDBN}
 \title{R6 class that defines the NN + DBN model}
 \arguments{
-\item{lower}{lower bounds of the learning rate, epochs, batch size and recall}
+\item{lower}{lower bounds of the learning rate, epochs, batch size}
 
-\item{upper}{upper bounds of the learning rate, epochs, batch size and recall}
+\item{upper}{upper bounds of the learning rate, epochs, batch size}
 
 \item{itermax}{maximum number of iterations of the optimization process}
 
@@ -26,7 +26,7 @@
 
 \item{optim}{boolean that determines whether or not the NN parameters should be optimized}
 
-\item{cl_params}{vector with the parameters of the NN c(learn_rate, epochs, batch_size, recall)}
+\item{cl_params}{vector with the parameters of the NN c(learn_rate, epochs, batch_size)}
 }
 \value{
 the prediction result vector
@@ -49,13 +49,3 @@ Fit the internal NN
 The model is defined as a DBN model that forecasts the state of a time-series
 based system and a neural network model that classifies that predicted state.
 }
-\section{Fields}{
-
-\describe{
-\item{\code{formula}}{the formula for the SVM model}
-
-\item{\code{center}}{the mean of the variables for normalization}
-
-\item{\code{scale}}{the standard deviation of the variables for normalization}
-}}
-

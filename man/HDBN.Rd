@@ -104,5 +104,9 @@ time to encapsulate it any further.
 \item{\code{optim_test_per}}{percentage of instances assigned as test in the optimization}
 
 \item{\code{optim_trace}}{whether or not to print the progress of each optimization iteration}
+
+\item{\code{center}}{the mean of the variables for normalization}
+
+\item{\code{scale}}{the standard deviation of the variables for normalization}
 }}
 

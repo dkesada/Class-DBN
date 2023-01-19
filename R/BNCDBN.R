@@ -30,7 +30,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
     #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
-    predict = function(dt_test, horizon = 1, print_res = T, conf_mat=F){
+    predict = function(dt_test, horizon = 1, print_res = T, conf_mat=T){
       del_vars <- c("orig_row_t_0", "orig_row_t_1")
       dt_test_mod <- copy(dt_test)
       dt_test_mod[, orig_row := .I]
@@ -51,8 +51,8 @@ BNCDBN <- R6::R6Class("BNCDBN",
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", 1-private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", 1-private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
       
       if(conf_mat)
@@ -68,7 +68,7 @@ BNCDBN <- R6::R6Class("BNCDBN",
     #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
-    predict_cl = function(dt_test, print_res = T, conf_mat=F){
+    predict_cl = function(dt_test, print_res = T, conf_mat=T){
       dt_test_mod <- copy(dt_test)
       dt_test_mod[, eval(private$id_var) := NULL]
       dt_test_mod <- private$discretize_dt(dt_test_mod)
@@ -76,8 +76,8 @@ BNCDBN <- R6::R6Class("BNCDBN",
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", 1-private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", 1-private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
       
       if(conf_mat)

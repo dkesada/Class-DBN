@@ -8,12 +8,12 @@ NNDBN <- R6::R6Class("NNDBN",
   public = list(
     #' @description
     #' Initialize the object with some modifiable parameters of the optimization
-    #' @param lower lower bounds of the learning rate, epochs, batch size and recall
-    #' @param upper upper bounds of the learning rate, epochs, batch size and recall
+    #' @param lower lower bounds of the learning rate, epochs, batch size
+    #' @param upper upper bounds of the learning rate, epochs, batch size
     #' @param itermax maximum number of iterations of the optimization process
     #' @param test_per percentage of instances assigned as test in the optimization
     #' @param optim_trace whether or not to print the progress of each optimization iteration
-    initialize = function(lower = c(1.5, 100, 2.5, 0.5), upper = c(6.49, 200, 8.49, 0.75), 
+    initialize = function(lower = c(2.5, 100, 2.5), upper = c(6.49, 200, 8.49), 
                           itermax = 100, test_per = 0.2, trace = TRUE){
       super$initialize(lower, upper, itermax, test_per, trace)
     },
@@ -27,7 +27,7 @@ NNDBN <- R6::R6Class("NNDBN",
     #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
-    predict = function(dt_test, horizon = 1, print_res = T, conf_mat=F){
+    predict = function(dt_test, horizon = 1, print_res = T, conf_mat=T){
       # --ICO-MERGE very similar to the XGBoost one, maybe include in HDBN and inherit?
       del_vars <- c("orig_row_t_0", "orig_row_t_1")
       dt_test_mod <- copy(dt_test)
@@ -45,12 +45,12 @@ NNDBN <- R6::R6Class("NNDBN",
       dt_test_mod[, eval(private$id_var) := NULL]
       
       preds <- predict(private$cl, scale(as.matrix(dt_test_mod), center = private$center, scale = private$scale)) > 0.5
-      preds <- as.numeric(preds[,2])
+      preds <- as.numeric(preds)
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", 1-private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", 1-private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
         
       if(conf_mat)
@@ -66,19 +66,19 @@ NNDBN <- R6::R6Class("NNDBN",
     #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
-    predict_cl = function(dt_test, print_res = T, conf_mat=F){
+    predict_cl = function(dt_test, print_res = T, conf_mat=T){
       # --ICO-MERGE very similar to the XGBoost one, maybe include in HDBN and inherit?
       dt_test_mod <- copy(dt_test)
       dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
       
       preds <- predict(private$cl, scale(as.matrix(dt_test_mod), center = private$center, scale = private$scale)) > 0.5
-      preds <- as.numeric(preds[,2])
+      preds <- as.numeric(preds)
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", 1-private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", 1-private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
       
       if(conf_mat)
@@ -90,18 +90,16 @@ NNDBN <- R6::R6Class("NNDBN",
   ),
   
   private = list(
-    #' @field formula the formula for the SVM model
-    formula = NULL,
-    #' @field center the mean of the variables for normalization
-    center = NULL,
-    #' @field scale the standard deviation of the variables for normalization
-    scale = NULL,
-    
     keras_structure = function(in_shape){
       model <- keras_model_sequential() %>%
         layer_dense(units = 64, activation = "relu", input_shape = in_shape) %>%
-        layer_dense(units = 32, activation = "relu") %>%
-        layer_dense(units = 2, activation = "softmax")
+        layer_dense(units = 32, activation = "relu", kernel_initializer = keras::initializer_identity()) %>%
+        layer_dense(units = 16, activation = "relu", kernel_initializer = keras::initializer_identity()) %>%
+        layer_dense(units = 16, activation = "relu", kernel_initializer = keras::initializer_identity()) %>%
+        layer_dense(units = 8, activation = "relu", kernel_initializer = keras::initializer_identity()) %>%
+        # layer_dense(units = 32, activation = "relu", kernel_initializer = keras::initializer_identity()) %>%
+        #layer_dense(units = 2, activation = "softmax")
+        layer_dense(units = 1, activation = "sigmoid", kernel_initializer = keras::initializer_identity())
       
       return(model)
     },
@@ -110,16 +108,21 @@ NNDBN <- R6::R6Class("NNDBN",
     #' Fit the internal NN
     #' @param dt_train a data.table with the training dataset
     #' @param optim boolean that determines whether or not the NN parameters should be optimized
-    #' @param cl_params vector with the parameters of the NN c(learn_rate, epochs, batch_size, recall)
+    #' @param cl_params vector with the parameters of the NN c(learn_rate, epochs, batch_size)
     fit_cl = function(dt_train, optim, cl_params){
       obj_col <- dt_train[, get(private$cl_obj_var)]
       dt_train_red <- copy(dt_train)
+      
+      # SMOTE should be optional
+      dt_train_red <- smote_dt(dt_train_red, obj_var = private$cl_obj_var, perc_over = 100, perc_under = 400)
+      obj_col <- dt_train_red[, get(private$cl_obj_var)]
+      dt_train <- copy(dt_train_red)
+      
       dt_train_red[, eval(private$id_var) := NULL]
       dt_train_red[, eval(private$cl_obj_var) := NULL]
-      private$formula <- as.formula(paste0(private$cl_obj_var, " ~ ." ))
       
       # Optional shuffle
-      dt_train_red <- shuffle_dt(dt_train_red)
+      #dt_train_red <- shuffle_dt(dt_train_red)
 
       dt_scaled <- scale(as.matrix(dt_train_red))
       private$center <- attr(dt_scaled, "scaled:center")
@@ -129,18 +132,19 @@ NNDBN <- R6::R6Class("NNDBN",
         cl_params <- private$optimize_cl(dt_train)$optim$bestmem
       
       if(is.null(cl_params))  # No optimization and no params provided by the user
-        cl_params <- c(4, 50, 5, 0.5)
+        cl_params <- c(5, 300, 6) # c(4.603732, 199.6624, 8.001308)
       
       private$cl_params <- cl_params
       
       # Internal structure was built manually, could be optimized
       private$cl <- private$keras_structure(dim(dt_train_red)[2])
       
-      compile(private$cl, loss = "categorical_crossentropy", optimizer = optimizer_rmsprop(learning_rate = 10^-round(cl_params[1])),
-              metrics = keras::metric_precision_at_recall(recall=cl_params[4]))
+      compile(private$cl, loss = keras::loss_binary_crossentropy(), optimizer = optimizer_rmsprop(learning_rate = 10^-round(cl_params[1])),
+              metrics = keras::metric_binary_crossentropy()) #keras::metric_precision_at_recall(recall=params[4]))
       
-      history = fit(private$cl, dt_scaled, to_categorical(obj_col, num_classes = 2), 
-                    epochs = round(cl_params[2]), batch_size = 2^round(cl_params[3]), validation_split = 0.2)
+      history = fit(private$cl, dt_scaled, obj_col, 
+                    epochs = round(cl_params[2]), batch_size = 2^round(cl_params[3]), validation_split = 0.2,
+                    verbose = T)
       
       plot(history)
     },
@@ -154,14 +158,15 @@ NNDBN <- R6::R6Class("NNDBN",
       
       cl <- private$keras_structure(dim(dt_train_sc)[2])
       
-      compile(cl, loss = "categorical_crossentropy", optimizer = optimizer_rmsprop(learning_rate = 10^-round(params[1])),
-              metrics = keras::metric_precision_at_recall(recall=params[4]))
+      compile(cl, loss = keras::loss_binary_crossentropy(), optimizer = optimizer_rmsprop(learning_rate = 10^-round(params[1])),
+              metrics = keras::metric_binary_crossentropy()) #keras::metric_precision_at_recall(recall=params[4]))
       
-      history = fit(cl, dt_train_sc, to_categorical(labels[test == 0, get(private$cl_obj_var)], num_classes = 2), 
-                    epochs = round(params[2]), batch_size = 2^round(params[3]), validation_split = 0.2)
+      history = fit(cl, dt_train_sc, labels[test == 0, get(private$cl_obj_var)], 
+                    epochs = round(params[2]), batch_size = 2^round(params[3]), validation_split = 0.2,
+                    verbose = F)
       
       preds <- predict(cl, dt_test_sc) > 0.5
-      preds <- as.numeric(preds[,2])
+      preds <- as.numeric(preds)
 
       acc <- eval_metric(labels[test == 1, get(private$cl_obj_var)], preds)
 

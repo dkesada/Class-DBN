@@ -13,31 +13,46 @@ library(DEoptim)
 run_all <- function(){
   print("Executing the xgb model:")
   main_cv(main_xgb, horizon = 10, suffix = "xgb")
-  # print("Executing the svm model:")
-  # main_cv(main_svm, horizon = 20, suffix = "svm")
-  # print("Executing the nn model:")
-  # main_cv(main_nn, horizon = 20, suffix = "nn")
-  # print("Executing the naive Bayes model:")
-  # main_cv(main_bncl_single, horizon = 20, suffix = "nb", cl_params = c(0,0,0,0))
-  # print("Executing the TAN CL model:")
-  # main_cv(main_bncl_single, horizon = 20, suffix = "cl", cl_params = c(1,0,0,0))
-  # print("Executing the TAN HC model:")
-  # main_cv(main_bncl_single, horizon = 20, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
-  # print("Executing the TAN HCSP model:")
-  # main_cv(main_bncl_single, horizon = 20, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
+  print("Executing the svm model:")
+  main_cv(main_svm, horizon = 10, suffix = "svm")
+  print("Executing the nn model:")
+  main_cv(main_nn, horizon = 10, suffix = "nn")
+  print("Executing the naive Bayes model:")
+  main_cv(main_bncl_single, horizon = 10, suffix = "nb", cl_params = c(0,0,0,0))
+  print("Executing the TAN CL model:")
+  main_cv(main_bncl_single, horizon = 10, suffix = "cl", cl_params = c(1,0,0,0))
+  print("Executing the TAN HC model:")
+  main_cv(main_bncl_single, horizon = 10, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
+  print("Executing the TAN HCSP model:")
+  main_cv(main_bncl_single, horizon = 10, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
 }
 
 #' @export
-main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){
-  #sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
+main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){ # k = 300
+  sink(paste0("./output/cv_res_", Sys.Date(), "_", horizon, "_", suffix, ".txt"))
   
   set.seed(seed)
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   
+  # Only crit at the last instance
+  # regs <- dt[Crit == 1, unique(REGISTRO)]
+  # dt[, id := .I]
+  # for(i in regs){
+  #   ids <- dt[REGISTRO == i, id]
+  #   dt[REGISTRO == i, Crit := 0]
+  #   dt[max(ids), Crit := 1]
+  # }
+  # dt[, id := NULL]
+  
   cv_sets <- cross_sets(dt[, unique(get(id_var))], k)
+  
+  crono <- unique(dt[order(Fecha_emision), REGISTRO])
+  cv_sets[[1]] <- crono[900:993]
+  cv_sets <- cv_sets[1]
   
   cat("Generated folds:\n")
   print(cv_sets)
@@ -83,8 +98,8 @@ main_xgb <- function(cv_sets, horizon){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt[, Crit := as.numeric(UCI == "S")]
+  # dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -93,11 +108,16 @@ main_xgb <- function(cv_sets, horizon){
   dbn_obj_vars <- c(var_sets$vitals, var_sets$analit_red)
   xgb_obj_var <- "Crit"
   dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$vitals, var_sets$analit_red, id_var, xgb_obj_var)]  # Can also try analit_full
+  # dt_red <- dt[, .SD, .SDcols = c(var_sets$cte, var_sets$analit_red, id_var, xgb_obj_var)]
+  # dbn_obj_vars <- c(var_sets$analit_red)
   
   dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
   dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
-  model <- XGDBN::XGDBN$new(itermax = 3)
+  # dt_train <- dt_train[Edad > 50]
+  # dt_test <- dt_test[Edad > 50]
+  
+  model <- XGDBN::XGDBN$new(itermax = 2)
   train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
@@ -138,7 +158,8 @@ main_svm <- function(cv_sets, horizon){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -151,7 +172,7 @@ main_svm <- function(cv_sets, horizon){
   dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
   dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
-  model <- XGDBN::SVDBN$new(itermax = 100)
+  model <- XGDBN::SVDBN$new(itermax = 2)
   train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, svm_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
@@ -187,12 +208,14 @@ main_svm <- function(cv_sets, horizon){
 #' @import data.table jsonlite keras dbnR DEoptim
 #' @export
 main_nn <- function(cv_sets, horizon){
+  tensorflow::set_random_seed(42)
   res <- matrix(nrow = horizon +1, ncol = 4)
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
   dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  # dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -205,15 +228,15 @@ main_nn <- function(cv_sets, horizon){
   dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
   dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
-  model <- XGDBN::NNDBN$new(itermax = 100)
+  model <- XGDBN::NNDBN$new(itermax = 2)
   train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, nn_obj_var, 
-                  dbn_obj_vars, seed = 42, optim = T)
+                  dbn_obj_vars, seed = 42, optim = F)
   train_t <- Sys.time() - train_t
   res[,4] <- train_t
   
   model$print_params()
-  browser()
+  
   cat("Baseline results: \n")
   exec_t <- Sys.time()
   preds <- model$predict_cl(dt_test)
@@ -255,7 +278,8 @@ main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -309,7 +333,8 @@ main_bncl_full <- function(){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"

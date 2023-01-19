@@ -13,7 +13,7 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param itermax maximum number of iterations of the optimization process
     #' @param test_per percentage of instances assigned as test in the optimization
     #' @param optim_trace whether or not to print the progress of each optimization iteration
-    initialize = function(lower = c(0.1, 1, 10), upper = c(5, 10, 500), 
+    initialize = function(lower = c(0.5, 1, 500), upper = c(2, 10, 1000), # 0.1, 5
                           itermax = 100, test_per = 0.2, trace = TRUE, optim_f = "gmean"){
       super$initialize(lower, upper, itermax, test_per, trace)
       private$optim_f <- optim_f
@@ -28,7 +28,7 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
-    predict = function(dt_test, horizon = 1, print_res = T, conf_mat=F){
+    predict = function(dt_test, horizon = 1, print_res = T, conf_mat=T){
       del_vars <- c("orig_row_t_0", "orig_row_t_1")
       dt_test_mod <- copy(dt_test)
       dt_test_mod[, orig_row := .I]
@@ -44,12 +44,17 @@ XGDBN <- R6::R6Class("XGDBN",
       dt_test_mod[orig_rows, eval(names(preds_net)) := preds_net,]
       dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
+      
+      dt_scaled <- scale(dt_test_mod[, .SD, .SDcols = private$dbn_obj_vars_raw],
+                         center = private$center, scale = private$scale)
+      dt_test_mod[, eval(private$dbn_obj_vars_raw) := as.data.table(dt_scaled)]
+      
       preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", 1-private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", 1-private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
       
       if(conf_mat)
@@ -65,16 +70,21 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param print_res a boolean that determines whether or not should the results of the prediction be printed
     #' @param conf_mat a boolean that determines whether or not should a confusion matrix be printed
     #' @return the prediction result vector
-    predict_cl = function(dt_test, print_res = T, conf_mat=F){
+    predict_cl = function(dt_test, print_res = T, conf_mat=T){
       dt_test_mod <- copy(dt_test)
       dt_test_mod[, eval(private$cl_obj_var) := NULL]
       dt_test_mod[, eval(private$id_var) := NULL]
+      
+      dt_scaled <- scale(dt_test_mod[, .SD, .SDcols = private$dbn_obj_vars_raw],
+                         center = private$center, scale = private$scale)
+      dt_test_mod[, eval(private$dbn_obj_vars_raw) := as.data.table(dt_scaled)]
+      
       preds <- as.numeric(predict(private$cl, as.matrix(dt_test_mod)) > 0.5)
       
       if(print_res){
         cat(paste0("Mean accuracy: ", mean(dt_test[, get(private$cl_obj_var)] == preds), "\n"))
-        cat(paste0("F1score: ", private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
-        cat(paste0("G-mean score: ", private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("F1score: ", 1-private$fscore(dt_test[, get(private$cl_obj_var)], preds), "\n"))
+        cat(paste0("G-mean score: ", 1- private$gmean(dt_test[, get(private$cl_obj_var)], preds), "\n"))
       }
       
       if(conf_mat)
@@ -95,32 +105,63 @@ XGDBN <- R6::R6Class("XGDBN",
     #' @param optim boolean that determines whether or not the XGBoost parameters should be optimized
     #' @param cl_params vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)
     fit_cl = function(dt_train, optim, cl_params){
+      dt_train <- copy(dt_train)
       obj_col <- dt_train[, get(private$cl_obj_var)]
-      dt_train_red <- copy(dt_train)
+      # dt_train_red <- copy(dt_train)
+      
+      dt_scaled <- scale(dt_train[, .SD, .SDcols = private$dbn_obj_vars_raw])
+      private$center <- attr(dt_scaled, "scaled:center")
+      private$scale <- attr(dt_scaled, "scaled:scale")
+      dt_train[, eval(private$dbn_obj_vars_raw) := as.data.table(dt_scaled)]
       
       # SMOTE should be optional
-      # dt_train_red <- smote_dt(dt_train_red, obj_var = private$cl_obj_var, perc_over = 600, perc_under = 100)
-      # obj_col <- dt_train_red[, get(private$cl_obj_var)]
+      dt_train <- smote_dt(dt_train, obj_var = private$cl_obj_var, perc_over = 100, perc_under = 400)
+      obj_col <- dt_train[, get(private$cl_obj_var)]
       # dt_train <- copy(dt_train_red)
       
-      dt_train[, index := .I]
-      dt_train_red[, eval(private$id_var) := NULL]
+      dt_train[, eval(private$id_var) := NULL]
       
       if(optim)
         cl_params <- private$optimize_cl(dt_train)$optim$bestmem
       
       if(is.null(cl_params))  # No optimization and no params provided by the user
-        cl_params <- c(1.26, 7, 258)
+        cl_params <- c(0.866, 5.008, 701.397)  #cl_params <- c(1.2, 3, 337)
       
       private$cl_params <- cl_params
       
+      dt_train[, index := .I]
       weights <- rep(1, dim(dt_train)[1])
       weights[dt_train[get(private$cl_obj_var) == 1, index]] <- cl_params[1]
-      dt_train_red[, eval(private$cl_obj_var) := NULL]
+      dt_train[, eval(private$cl_obj_var) := NULL]
+      dt_train[, index := NULL]
       
-      private$cl <- xgboost(data = as.matrix(dt_train_red), label = obj_col,
-                           weight = weights, eval_metric = private$get_optim_f(), max.depth = 4,
-                           eta = 1, nthread = 2, nrounds = 20, objective = "binary:logistic")
+      private$cl <- xgboost(data = as.matrix(dt_train), label = obj_col,
+                            weight = weights, eval.metric = private$gmean_xgb, max.depth = round(cl_params[2]),
+                            eta = 1, nthread = 2, nrounds = round(cl_params[3]), objective = "binary:logistic")
+    },
+    
+    #' @description
+    #' Optimize the parameters of the internal classifier. Generic version without using the id_var
+    #' @param dt a data.table with the training dataset
+    optimize_cl = function(dt){
+      dt[, Idx := .I]
+      test_id <- sample(dt[, Idx], nrow(dt) * private$optim_test_per)
+      dt_train <- dt[!(Idx %in% test_id)]
+      dt_test <- dt[Idx %in% test_id]
+      labels <- dt[, .SD, .SDcols = c("Idx", private$cl_obj_var)]
+      labels[, test := 0]
+      labels[Idx %in% test_id, test := 1]
+      dt_train[, eval(private$cl_obj_var) := NULL]
+      dt_test[, eval(private$cl_obj_var) := NULL]
+      dt_train[, Idx := NULL]
+      dt_test[, Idx := NULL]
+      dt[, Idx := NULL]
+      
+      res <- DEoptim::DEoptim(fn = private$eval_cl, lower = private$optim_lower, upper = private$optim_upper,
+                              control = DEoptim::DEoptim.control(itermax = private$optim_itermax, trace = private$optim_trace),
+                              dt_train, dt_test, labels, private$gmean)
+      
+      return(res)
     },
     
     # Three parameters to optimize: the weight of critical cases, the max.depth and the number of rounds
@@ -132,9 +173,10 @@ XGDBN <- R6::R6Class("XGDBN",
       labels[test == 0, index := .I]
       weights[labels[test == 0 & get(private$cl_obj_var) == 1, index]] <- params[1]
       labels[, index := NULL]
+      
       cl <- xgboost(data = as.matrix(dt_train), 
                            label = labels[test == 0, get(private$cl_obj_var)], weight = weights, 
-                           eval_metric = private$get_optim_f(), max.depth = params[2], nrounds = params[3],
+                           eval.metric = private$gmean_xgb, max.depth = params[2], nrounds = params[3],
                            eta = 1, nthread = 2, objective = "binary:logistic", verbose = 0)
       preds <- as.numeric(predict(cl, as.matrix(dt_test)) > 0.5)
       
@@ -147,6 +189,8 @@ XGDBN <- R6::R6Class("XGDBN",
       res <- private$fscore_xgb
       if(private$optim_f == "gmean")
         res <- private$gmean_xgb
+      if(private$optim_f == "dummy")
+        res <- private$dummy_xgb
       
       return(res)
     },
@@ -174,11 +218,22 @@ XGDBN <- R6::R6Class("XGDBN",
       
       recall <- tp / (tp + fn)
       spec <- tn / (fp + tn)
-      err <- as.numeric(sqrt(spec * recall))
+      err <- 1 - as.numeric(sqrt(spec * recall))
       if(is.na(err))
         err <- 0
       
       return(list(metric = "g-mean", value = err))
+    },
+    
+    dummy_xgb = function(preds, dtrain){
+      labels <- getinfo(dtrain, "label")
+      tp <- 1 - (sum(labels == 1 & preds >= 0.5) / length(labels))
+      
+      err <- as.numeric(tp)
+      if(is.na(err))
+        err <- 0
+      
+      return(list(metric = "dummy", value = err))
     }
     
   )

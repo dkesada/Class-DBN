@@ -4,9 +4,9 @@
 \alias{SVDBN}
 \title{R6 class that defines the SVM + DBN model}
 \arguments{
-\item{lower}{lower bounds of the weight, kernel, gamma and cost}
+\item{lower}{lower bounds of the weight, gamma and cost}
 
-\item{upper}{upper bounds of the weight, kernel, gamma and cost}
+\item{upper}{upper bounds of the weight, gamma and cost}
 
 \item{itermax}{maximum number of iterations of the optimization process}
 
@@ -26,7 +26,9 @@
 
 \item{optim}{boolean that determines whether or not the SVM parameters should be optimized}
 
-\item{cl_params}{vector with the parameters of the SVM c(weight, kernel, gamma, cost)}
+\item{cl_params}{vector with the parameters of the SVM c(weight, gamma, cost)}
+
+\item{dt}{a data.table with the training dataset}
 }
 \value{
 the prediction result vector
@@ -44,6 +46,8 @@ Predict the objective variable in all the rows in a dataset using only
 the SVM model.
 
 Fit the internal SVM
+
+Optimize the parameters of the internal classifier. Generic version without using the id_var
 }
 \details{
 The model is defined as a DBN model that forecasts the state of a time-series

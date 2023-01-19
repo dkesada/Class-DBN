@@ -122,6 +122,10 @@ HDBN <- R6::R6Class("HDBN",
     optim_test_per = NULL,
     #' @field optim_trace whether or not to print the progress of each optimization iteration
     optim_trace = NULL,
+    #' @field center the mean of the variables for normalization
+    center = NULL,
+    #' @field scale the standard deviation of the variables for normalization
+    scale = NULL,
     
     #' @description
     #' Fit the internal DBN
@@ -192,7 +196,7 @@ HDBN <- R6::R6Class("HDBN",
       if(is.na(err))
         err <- 0
       
-      return(err)
+      return(1-err)
     },
     
     gmean = function(orig, preds){
@@ -204,6 +208,24 @@ HDBN <- R6::R6Class("HDBN",
       recall <- tp / (tp + fn)
       spec <- tn / (fp + tn)
       err <- as.numeric(sqrt(spec * recall))
+      if(is.na(err))
+        err <- 0
+      
+      return(1 - err)
+    },
+    
+    accuracy = function(orig, preds){
+      err <- mean(orig == preds)
+      if(is.na(err))
+        err <- 0
+      
+      return(1 - err)
+    },
+    
+    dummy = function(orig, preds){
+      tp <- sum(orig == 1 & preds == 1)
+      
+      err <- as.numeric(tp)
       if(is.na(err))
         err <- 0
       

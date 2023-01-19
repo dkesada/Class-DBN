@@ -27,6 +27,8 @@
 \item{optim}{boolean that determines whether or not the XGBoost parameters should be optimized}
 
 \item{cl_params}{vector with the parameters of the XGBoost. c(weight, max_depth, n_rounds)}
+
+\item{dt}{a data.table with the training dataset}
 }
 \value{
 the prediction result vector
@@ -44,6 +46,8 @@ Predict the objective variable in all the rows in a dataset using only
 the XGBoost model.
 
 Fit the internal XGBoost
+
+Optimize the parameters of the internal classifier. Generic version without using the id_var
 }
 \details{
 The model is defined as a DBN model that forecasts the state of a time-series
