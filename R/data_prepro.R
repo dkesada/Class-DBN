@@ -34,8 +34,8 @@ main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){ 
   set.seed(seed)
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt[, Crit := as.numeric(EXITUS == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   
   # Only crit at the last instance
@@ -98,8 +98,8 @@ main_xgb <- function(cv_sets, horizon){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  # dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt[, Crit := as.numeric(EXITUS == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -117,7 +117,7 @@ main_xgb <- function(cv_sets, horizon){
   # dt_train <- dt_train[Edad > 50]
   # dt_test <- dt_test[Edad > 50]
   
-  model <- XGDBN::XGDBN$new(itermax = 2)
+  model <- XGDBN::XGDBN$new(itermax = 100)
   train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
@@ -158,8 +158,8 @@ main_svm <- function(cv_sets, horizon){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt[, Crit := as.numeric(EXITUS == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -172,7 +172,7 @@ main_svm <- function(cv_sets, horizon){
   dt_train <- dt_red[!(get(id_var) %in% eval(cv_sets))]
   dt_test <- dt_red[get(id_var) %in% eval(cv_sets)]
   
-  model <- XGDBN::SVDBN$new(itermax = 2)
+  model <- XGDBN::SVDBN$new(itermax = 100)
   train_t <- Sys.time()
   model$fit_model(dt_train, id_var, size, method, svm_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
@@ -278,8 +278,8 @@ main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt[, Crit := as.numeric(EXITUS == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
@@ -333,8 +333,8 @@ main_bncl_full <- function(){
   method <- "dmmhc"
   id_var <- "REGISTRO"
   dt <- fread("./data/FJD_6.csv")
-  #dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
-  dt[, Crit := as.numeric(EXITUS == "S")]
+  dt[, Crit := as.numeric(EXITUS == "S" | UCI == "S")]
+  #dt[, Crit := as.numeric(EXITUS == "S")]
   dt <- factorize_character(dt)
   var_sets <- read_json("./data/var_sets.json", simplifyVector = T)
   var_sets$cte[2] <- "SEXO"
