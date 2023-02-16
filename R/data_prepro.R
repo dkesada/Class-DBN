@@ -58,7 +58,7 @@ main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){ 
   print(cv_sets)
   
   res_matrix <- matrix(nrow = horizon+1, ncol = length(cv_sets), 0) # Each cv up to the desired horizon 
-  res_matrix <- matrix(nrow = horizon+1, ncol = 4, 0) # Acc, f_scr, train_t, exec_t up to horizon 20 
+  res_matrix <- matrix(nrow = horizon+1, ncol = 5, 0) # Acc, f_scr, g-mean, train_t, exec_t up to horizon 10 
   rm(dt)
   
   for(i in 1:length(cv_sets)){
@@ -93,7 +93,7 @@ main_cv <- function(foo, k = 100, horizon = 10, suffix = "nb", seed = 42, ...){ 
 #' @import data.table jsonlite xgboost dbnR pso DEoptim
 #' @export
 main_xgb <- function(cv_sets, horizon){
-  res <- matrix(nrow = horizon +1, ncol = 4)
+  res <- matrix(nrow = horizon +1, ncol = 5)
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
@@ -122,7 +122,7 @@ main_xgb <- function(cv_sets, horizon){
   model$fit_model(dt_train, id_var, size, method, xgb_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
   train_t <- Sys.time() - train_t
-  res[,4] <- train_t
+  res[,5] <- train_t
   
   model$print_params()
   
@@ -132,7 +132,8 @@ main_xgb <- function(cv_sets, horizon){
   exec_t <- Sys.time() - exec_t
   res[1,1] <- mean(dt_test[, get(xgb_obj_var)] == preds)
   res[1,2] <- f1score(dt_test[, get(xgb_obj_var)], preds)
-  res[1,3] <- exec_t
+  res[1,3] <- g_mean(dt_test[, get(xgb_obj_var)], preds)
+  res[1,4] <- exec_t
   
   for(i in 1:horizon){
     cat(sprintf("Horizon %d results:\n", i))
@@ -141,7 +142,8 @@ main_xgb <- function(cv_sets, horizon){
     exec_t <- Sys.time() - exec_t
     res[i+1,1] <- mean(dt_test[, get(xgb_obj_var)] == preds)
     res[i+1,2] <- f1score(dt_test[, get(xgb_obj_var)], preds)
-    res[i+1,3] <- exec_t
+    res[i+1,3] <- g_mean(dt_test[, get(xgb_obj_var)], preds)
+    res[i+1,4] <- exec_t
   }
   
   return(res)
@@ -153,7 +155,7 @@ main_xgb <- function(cv_sets, horizon){
 #' @import data.table jsonlite e1071 dbnR pso DEoptim
 #' @export
 main_svm <- function(cv_sets, horizon){
-  res <- matrix(nrow = horizon +1, ncol = 4)
+  res <- matrix(nrow = horizon +1, ncol = 5)
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
@@ -177,7 +179,7 @@ main_svm <- function(cv_sets, horizon){
   model$fit_model(dt_train, id_var, size, method, svm_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T)
   train_t <- Sys.time() - train_t
-  res[,4] <- train_t
+  res[,5] <- train_t
   
   model$print_params()
   
@@ -187,7 +189,8 @@ main_svm <- function(cv_sets, horizon){
   exec_t <- Sys.time() - exec_t
   res[1,1] <- mean(dt_test[, get(svm_obj_var)] == preds)
   res[1,2] <- f1score(dt_test[, get(svm_obj_var)], preds)
-  res[1,3] <- exec_t
+  res[1,3] <- g_mean(dt_test[, get(svm_obj_var)], preds)
+  res[1,4] <- exec_t
   
   for(i in 1:horizon){
     cat(sprintf("Horizon %d results:\n", i))
@@ -196,7 +199,8 @@ main_svm <- function(cv_sets, horizon){
     exec_t <- Sys.time() - exec_t
     res[i+1,1] <- mean(dt_test[, get(svm_obj_var)] == preds)
     res[i+1,2] <- f1score(dt_test[, get(svm_obj_var)], preds)
-    res[i+1,3] <- exec_t
+    res[i+1,3] <- g_mean(dt_test[, get(svm_obj_var)], preds)
+    res[i+1,4] <- exec_t
   }
   
   return(res)
@@ -209,7 +213,7 @@ main_svm <- function(cv_sets, horizon){
 #' @export
 main_nn <- function(cv_sets, horizon){
   tensorflow::set_random_seed(42)
-  res <- matrix(nrow = horizon +1, ncol = 4)
+  res <- matrix(nrow = horizon +1, ncol = 5)
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
@@ -233,7 +237,7 @@ main_nn <- function(cv_sets, horizon){
   model$fit_model(dt_train, id_var, size, method, nn_obj_var, 
                   dbn_obj_vars, seed = 42, optim = F)
   train_t <- Sys.time() - train_t
-  res[,4] <- train_t
+  res[,5] <- train_t
   
   model$print_params()
   
@@ -243,7 +247,8 @@ main_nn <- function(cv_sets, horizon){
   exec_t <- Sys.time() - exec_t
   res[1,1] <- mean(dt_test[, get(nn_obj_var)] == preds)
   res[1,2] <- f1score(dt_test[, get(nn_obj_var)], preds)
-  res[1,3] <- exec_t
+  res[1,3] <- g_mean(dt_test[, get(nn_obj_var)], preds)
+  res[1,4] <- exec_t
   
   for(i in 1:horizon){
     cat(sprintf("Horizon %d results:\n", i))
@@ -252,7 +257,8 @@ main_nn <- function(cv_sets, horizon){
     exec_t <- Sys.time() - exec_t
     res[i+1,1] <- mean(dt_test[, get(nn_obj_var)] == preds)
     res[i+1,2] <- f1score(dt_test[, get(nn_obj_var)], preds)
-    res[i+1,3] <- exec_t
+    res[i+1,3] <- g_mean(dt_test[, get(nn_obj_var)], preds)
+    res[i+1,4] <- exec_t
   }
   
   return(res)
@@ -273,7 +279,7 @@ main_mtdbn <- function(){
 #' @import bnclassify arules
 #' @export
 main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
-  res <- matrix(nrow = horizon +1, ncol = 4)
+  res <- matrix(nrow = horizon +1, ncol = 5)
   size <- 2
   method <- "dmmhc"
   id_var <- "REGISTRO"
@@ -297,7 +303,7 @@ main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
   model$fit_model(dt_train, id_var, size, method, cl_obj_var, 
                   dbn_obj_vars, seed = 42, optim = T, cl_params = cl_params)
   train_t <- Sys.time() - train_t
-  res[,4] <- train_t
+  res[,5] <- train_t
   
   model$print_params()
   
@@ -307,7 +313,8 @@ main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
   exec_t <- Sys.time() - exec_t
   res[1,1] <- mean(dt_test[, get(cl_obj_var)] == preds)
   res[1,2] <- f1score(dt_test[, get(cl_obj_var)], preds)
-  res[1,3] <- exec_t
+  res[1,3] <- g_mean(dt_test[, get(cl_obj_var)], preds)
+  res[1,4] <- exec_t
 
   for(i in 1:horizon){
     cat(sprintf("Horizon %d results:\n", i))
@@ -316,7 +323,8 @@ main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
     exec_t <- Sys.time() - exec_t
     res[i+1,1] <- mean(dt_test[, get(cl_obj_var)] == preds)
     res[i+1,2] <- f1score(dt_test[, get(cl_obj_var)], preds)
-    res[i+1,3] <- exec_t
+    res[i+1,3] <- g_mean(dt_test[, get(cl_obj_var)], preds)
+    res[i+1,4] <- exec_t
   }
   
   return(res)
