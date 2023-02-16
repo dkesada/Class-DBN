@@ -6,4 +6,6 @@
 *.dll
 *.Rproj
 data/
-output/
+output/*/
+output/*.txt
+output/*.Rdata

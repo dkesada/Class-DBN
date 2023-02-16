@@ -56,8 +56,6 @@ NNDBN <- R6::R6Class("NNDBN",
       if(conf_mat)
         private$conf_matrix(dt_test[, get(private$cl_obj_var)], preds)
       
-      #plot(private$fit)
-      
       return(preds)
     },
     
