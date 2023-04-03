@@ -17,12 +17,12 @@ run_all <- function(){
   main_cv(main_svm, horizon = 10, suffix = "svm")
   print("Executing the nn model:")
   main_cv(main_nn, horizon = 10, suffix = "nn")
-  print("Executing the naive Bayes model:")
-  main_cv(main_bncl_single, horizon = 10, suffix = "nb", cl_params = c(0,0,0,0))
-  print("Executing the TAN CL model:")
-  main_cv(main_bncl_single, horizon = 10, suffix = "cl", cl_params = c(1,0,0,0))
-  print("Executing the TAN HC model:")
-  main_cv(main_bncl_single, horizon = 10, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
+  # print("Executing the naive Bayes model:")
+  # main_cv(main_bncl_single, horizon = 10, suffix = "nb", cl_params = c(0,0,0,0))
+  # print("Executing the TAN CL model:")
+  # main_cv(main_bncl_single, horizon = 10, suffix = "cl", cl_params = c(1,0,0,0))
+  # print("Executing the TAN HC model:")
+  # main_cv(main_bncl_single, horizon = 10, suffix = "tanhc", cl_params = c(2,4,0.5,0.5))
   print("Executing the TAN HCSP model:")
   main_cv(main_bncl_single, horizon = 10, suffix = "tanhcsp", cl_params = c(3,4,0.5,0.5))
 }
@@ -123,6 +123,8 @@ main_xgb <- function(cv_sets, horizon){
                   dbn_obj_vars, seed = 42, optim = T)
   train_t <- Sys.time() - train_t
   res[,5] <- train_t
+  print("Training time was:")
+  print(train_t)
   
   model$print_params()
   
@@ -180,6 +182,8 @@ main_svm <- function(cv_sets, horizon){
                   dbn_obj_vars, seed = 42, optim = T)
   train_t <- Sys.time() - train_t
   res[,5] <- train_t
+  print("Training time was:")
+  print(train_t)
   
   model$print_params()
   
@@ -238,6 +242,8 @@ main_nn <- function(cv_sets, horizon){
                   dbn_obj_vars, seed = 42, optim = F)
   train_t <- Sys.time() - train_t
   res[,5] <- train_t
+  print("Training time was:")
+  print(train_t)
   
   model$print_params()
   
@@ -304,6 +310,8 @@ main_bncl_single <- function(cv_sets, horizon, cl_params = c(0, 0, 0, 0)){
                   dbn_obj_vars, seed = 42, optim = T, cl_params = cl_params)
   train_t <- Sys.time() - train_t
   res[,5] <- train_t
+  print("Training time was:")
+  print(train_t)
   
   model$print_params()
   
