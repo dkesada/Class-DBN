@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pathlib
-from scipy.stats import ranksums
+from scipy.stats import wilcoxon, kruskal
 
 # First extract the final result matrix from each cv_res .txt file
 def read_table_res(path):
@@ -22,7 +22,11 @@ def read_table_res(path):
     return res
 
 
-#def print_wilcoxon_results(tb, name, *kwargs):
+def print_wilcoxon_pair_results(tb1, name, tb2, name2, *kwargs):
+    print('Comparing ' + name + ' and ' + name2 + ' accuracy: ')
+    print(wilcoxon(tb1[:, 1], tb2[:, 1]))
+    print('Comparing ' + name + ' and ' + name2 + ' g-mean: ')
+    print(wilcoxon(tb1[:, 2], tb2[:, 2]))
 
 
 
@@ -38,15 +42,28 @@ def print_average_res():
 
     print('XGB results:')
     print(np.mean(xgb, axis=0))
+    print(np.std(xgb, axis=0))
     print('SVM results:')
     print(np.mean(svm, axis=0))
+    print(np.std(svm, axis=0))
     print('NN results:')
     print(np.mean(nn, axis=0))
+    print(np.std(nn, axis=0))
     print('HCSP results:')
     print(np.mean(hcsp, axis=0))
+    print(np.std(hcsp, axis=0))
 
-    print('Wilcoxon rank-sum test results:')
-    print_wilcoxon_results(xgb, "XGB", )
+    # print('Wilcoxon rank-sum test results:')
+    # print_wilcoxon_pair_results(xgb, "XGB", svm, "SVM")
+    # print_wilcoxon_pair_results(xgb, "XGB", nn, "NN")
+    # print_wilcoxon_pair_results(xgb, "XGB", hcsp, "HCSP")
+    #
+    # print_wilcoxon_pair_results(svm, "SVM",  nn, "NN")
+    # print_wilcoxon_pair_results(svm, "SVM", hcsp, "HCSP")
+    #
+    # print_wilcoxon_pair_results(nn, "NN", hcsp, "HSCP")
+    print(kruskal(xgb[:, 1], svm[:, 1], nn[:, 1], hcsp[:, 1]))
+    print(kruskal(xgb[:, 2], svm[:, 2], nn[:, 2], hcsp[:, 2]))
 
 
 def plot_column(col, label, name):
@@ -172,5 +189,5 @@ def plot_all_in_sub():
 
 
 print_average_res()
-plot_one_model()
-#plot_all_in_one()
+#plot_one_model()
+plot_all_in_one()
